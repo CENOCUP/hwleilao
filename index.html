@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Diecast Arena - Leilão Hot Wheels & Miniaturas</title>
+    <title>Diecast Arena - Leilão & Loja Hot Wheels</title>
     <!-- Script do Supabase para rodar direto no navegador -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -251,11 +251,11 @@
         .metrica-card h4 { margin: 0; color: #aaa; font-size: 14px; }
         .metrica-card p { margin: 5px 0 0 0; font-size: 22px; font-weight: bold; color: #fff; }
         
-        #imgPreviewContainer {
+        #imgPreviewContainer, #imgPreviewLojaContainer {
             text-align: center;
             margin: 10px 0;
         }
-        #imgPreview {
+        #imgPreview, #imgPreviewLoja {
             max-width: 150px;
             max-height: 150px;
             border-radius: 8px;
@@ -279,6 +279,37 @@
             margin-top: 10px;
         }
 
+        /* SISTEMA DE ABAS PRINCIPAIS DO SISTEMA (CLIENTE/ADMIN) */
+        .main-tabs-nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .btn-main-tab {
+            background: #222;
+            color: #aaa;
+            padding: 12px 22px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            border: 1px solid #444;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-main-tab:hover {
+            background: #2a2a2a;
+            color: #fff;
+        }
+        .btn-main-tab.active {
+            background: #e10600;
+            color: #fff;
+            border-color: #ff3333;
+            box-shadow: 0 4px 12px rgba(225, 6, 0, 0.4);
+        }
+
         /* ESTILO DAS ABAS DO ADMIN */
         .admin-tabs-nav {
             display: flex;
@@ -286,6 +317,7 @@
             margin-bottom: 25px;
             border-bottom: 2px solid #333;
             padding-bottom: 15px;
+            flex-wrap: wrap;
         }
         .btn-admin-tab {
             background: #2a2a2a;
@@ -314,7 +346,7 @@
 
 <header>
     <h1>🏎️ DIECAST ARENA</h1>
-    <small>Painel de Leilões & Colecionáveis</small>
+    <small>Painel de Leilões, Loja & Colecionáveis</small>
 </header>
 
 <div class="container">
@@ -350,21 +382,67 @@
             </div>
         </div>
 
-        <!-- 🛠 PAINEL ADMINISTRADOR (COM 3 ABAS) -->
-        <div id="adminPanel" class="hidden card" style="border: 1px solid #ffcc00;">
-            <h2>🛠️ Centro de Controle do Administrador</h2>
+        <!-- 🧭 NAVEGAÇÃO PRINCIPAL DAS ABAS (CLIENTE & ADMIN) -->
+        <div class="main-tabs-nav">
+            <button type="button" class="btn-main-tab active" id="mainTabBtnLeiloes" onclick="switchMainTab('leiloes')">🔥 Leilões Ativos</button>
+            <button type="button" class="btn-main-tab" id="mainTabBtnLoja" onclick="switchMainTab('loja')">🛒 Loja (Miniaturas do Admin)</button>
+            <button type="button" class="btn-main-tab" id="mainTabBtnGaragem" onclick="switchMainTab('garagem')">📦 Minha Garagem</button>
+            <button type="button" class="btn-main-tab hidden" id="mainTabBtnAdmin" onclick="switchMainTab('admin')">🛠️ Painel do Admin</button>
+        </div>
+
+        <!-- ================= ABA 1: LEILÕES ATIVOS ================= -->
+        <div id="mainSectionLeiloes" class="card">
+            <h2>🔥 Leilões Correndo Agora</h2>
+            <div id="auctions" class="grid"></div>
+        </div>
+
+        <!-- ================= ABA 2: LOJA (APENAS MINIS DO ADMIN) ================= -->
+        <div id="mainSectionLoja" class="card hidden">
+            <h2>🛒 Vitrine da Loja Oficial</h2>
+            <p style="color: #aaa; font-size: 13px; margin-bottom: 20px;">Miniaturas exclusivas postadas diretamente pelo Admin com preço fixo para compra imediata.</p>
+            <div id="storeItemsGrid" class="grid"></div>
+        </div>
+
+        <!-- ================= ABA 3: MINHA GARAGEM ================= -->
+        <div id="mainSectionGaragem" class="card hidden" style="border-left: 5px solid #00ff66;">
+            <h2>📦 Minha Garagem (Itens Adquiridos)</h2>
             
-            <!-- NAVEGAÇÃO DAS ABAS -->
-            <div class="admin-tabs-nav">
-                <button type="button" class="btn-admin-tab active" id="tabBtnLeilao" onclick="switchAdminTab('leilao')">🔨 ABA LEILÃO</button>
-                <button type="button" class="btn-admin-tab" id="tabBtnFinanceiro" onclick="switchAdminTab('financeiro')">💰 FINANCEIRO</button>
-                <button type="button" class="btn-admin-tab" id="tabBtnPainel" onclick="switchAdminTab('painel')">🛠️ PAINEL DO ADMIN</button>
+            <div class="garagem-header">
+                <div class="metrica-card">
+                    <h4>Total de Peças</h4>
+                    <p id="metricCount">0</p>
+                </div>
+                <div class="metrica-card" style="border-left-color: #00ff66;">
+                    <h4>Total Investido</h4>
+                    <p id="metricTotal">R$ 0,00</p>
+                </div>
             </div>
 
-            <!-- ================= CONTEÚDO: ABA LEILÃO ================= -->
+            <div id="garage" class="grid"></div>
+        </div>
+
+        <!-- ================= ABA 4: PAINEL DO ADMIN (COM 3 ABAS INTERNAS) ================= -->
+        <div id="mainSectionAdmin" class="hidden card" style="border: 1px solid #ffcc00;">
+            <h2>🛠️ Centro de Controle do Administrador</h2>
+            
+            <!-- NAVEGAÇÃO DAS ABAS INTERNAS DO ADMIN -->
+            <div class="admin-tabs-nav">
+                <button type="button" class="btn-admin-tab active" id="tabBtnLeilao" onclick="switchAdminTab('leilao')">🔨 LEILÕES & LOJA</button>
+                <button type="button" class="btn-admin-tab" id="tabBtnFinanceiro" onclick="switchAdminTab('financeiro')">💰 FINANCEIRO</button>
+                <button type="button" class="btn-admin-tab" id="tabBtnPainel" onclick="switchAdminTab('painel')">🛠️ USUÁRIOS & SENHAS</button>
+            </div>
+
+            <!-- ================= CONTEÚDO: ADMIN - ABA LEILÃO & LOJA ================= -->
             <div id="adminTabLeilao">
-                <h3>➕ Cadastrar Nova Miniatura no Leilão</h3>
+                <h3>➕ Cadastrar Nova Miniatura</h3>
                 <div class="form-grid">
+                    <div>
+                        <label>Tipo de Publicação</label>
+                        <select id="pubType" onchange="togglePubTypeFields()">
+                            <option value="leilao">Leilão (Lance e Tempo)</option>
+                            <option value="loja">Loja (Preço Fixo / Venda Direta)</option>
+                        </select>
+                    </div>
                     <div>
                         <label>Nome da Hot Wheels</label>
                         <input id="carName" placeholder="Ex: '67 Camaro">
@@ -373,9 +451,20 @@
                         <label>Categoria / Série</label>
                         <input id="carCategory" placeholder="Ex: Super Treasure Hunt">
                     </div>
+                </div>
+
+                <div class="form-grid">
                     <div>
                         <label>Ano de Lançamento</label>
                         <input id="carYear" placeholder="Ex: 2024">
+                    </div>
+                    <div id="fieldPriceOrStart">
+                        <label id="labelPriceOrStart">Lance Inicial (R$)</label>
+                        <input id="carStart" type="number" placeholder="0.00">
+                    </div>
+                    <div id="fieldDuration">
+                        <label>Duração do Leilão (Minutos)</label>
+                        <input id="carTime" type="number" placeholder="Ex: 10">
                     </div>
                 </div>
                 
@@ -389,18 +478,7 @@
                 <label>Descrição do Item / Estado da Cartela</label>
                 <textarea id="carDesc" placeholder="Detalhes sobre a miniatura..."></textarea>
                 
-                <div class="form-grid">
-                    <div>
-                        <label>Lance Inicial (R$)</label>
-                        <input id="carStart" type="number" placeholder="0.00">
-                    </div>
-                    <div>
-                        <label>Duração do Leilão (Minutos)</label>
-                        <input id="carTime" type="number" placeholder="Ex: 10">
-                    </div>
-                </div>
-                
-                <button type="button" style="background: #27ae60;" onclick="addAuction(event)">🚀 Ativar e Publicar Leilão</button>
+                <button type="button" style="background: #27ae60;" onclick="addPublication(event)">🚀 Publicar na Plataforma</button>
 
                 <hr style="border-color: #333; margin: 30px 0;">
 
@@ -419,20 +497,21 @@
 
                 <hr style="border-color: #333; margin: 30px 0;">
 
-                <h3>📊 Monitoramento Geral de Itens</h3>
+                <h3>📊 Monitoramento Geral de Itens (Leilões & Loja)</h3>
                 <div style="margin-bottom: 10px;">
                     <button type="button" class="btn-secondary btn-filter active" id="filterAll" onclick="changeAdminFilter('all')">Todos</button>
-                    <button type="button" class="btn-secondary btn-filter" id="filterActive" onclick="changeAdminFilter('active')">Ativos</button>
+                    <button type="button" class="btn-secondary btn-filter" id="filterActive" onclick="changeAdminFilter('active')">Ativos / Na Loja</button>
                     <button type="button" class="btn-secondary btn-filter" id="filterClosed" onclick="changeAdminFilter('closed')">Encerrados</button>
                 </div>
                 <div class="admin-table-container">
                     <table>
                         <thead>
                             <tr>
-                                typeof <th>Miniatura</th>
-                                <th>Preço Final</th>
+                                <th>Miniatura</th>
+                                <th>Tipo</th>
+                                <th>Preço / Lance</th>
                                 <th>Status</th>
-                                <th>Vencedor & Pagamento</th>
+                                <th>Vencedor / Comprador</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
@@ -441,11 +520,11 @@
                 </div>
             </div>
 
-            <!-- ================= CONTEÚDO: ABA FINANCEIRO ================= -->
+            <!-- ================= CONTEÚDO: ADMIN - ABA FINANCEIRO ================= -->
             <div id="adminTabFinanceiro" class="hidden">
                 <div class="garagem-header">
                     <div class="metrica-card" style="border-left-color: #27ae60;">
-                        <h4>Total Faturado (Encerrados)</h4>
+                        <h4>Total Faturado (Geral)</h4>
                         <p id="adminMetricTotal" style="color: #00ff66;">R$ 0,00</p>
                     </div>
                 </div>
@@ -462,13 +541,13 @@
                 <hr style="border-color: #333; margin: 30px 0;">
 
                 <h3>🧾 Conferência de Comprovantes Enviados</h3>
-                <p style="color: #aaa; font-size: 13px;">Aqui você acompanha os pagamentos informados pelos vencedores e aprova para liberar na garagem deles.</p>
+                <p style="color: #aaa; font-size: 13px;">Aqui você acompanha os pagamentos informados pelos compradores e aprova para liberar na garagem deles.</p>
                 <div class="admin-table-container">
                     <table>
                         <thead>
                             <tr>
-                                <th>Item Arrematado</th>
-                                <th>Vencedor</th>
+                                <th>Item Adquirido</th>
+                                <th>Comprador</th>
                                 <th>Valor</th>
                                 <th>Status do PIX</th>
                             </tr>
@@ -478,7 +557,7 @@
                 </div>
             </div>
 
-            <!-- ================= CONTEÚDO: ABA PAINEL DO ADMIN ================= -->
+            <!-- ================= CONTEÚDO: ADMIN - ABA USUÁRIOS & SENHAS ================= -->
             <div id="adminTabPainel" class="hidden">
                 <h3>🔑 Gerenciar Senhas dos Usuários</h3>
                 <div class="form-grid" style="align-items: flex-end;">
@@ -495,13 +574,14 @@
 
                 <hr style="border-color: #333; margin: 30px 0;">
 
-                <h3>👥 Lista de Usuários Cadastrados</h3>
+                <h3>👥 Lista de Usuários Cadastrados & Ações</h3>
                 <div class="admin-table-container">
                     <table>
                         <thead>
                             <tr>
                                 <th>Usuário</th>
                                 <th>Tipo de Conta</th>
+                                <th>Ações</th>
                             </tr>
                         </thead>
                         <tbody id="adminUsersTableBody"></tbody>
@@ -509,30 +589,6 @@
                 </div>
             </div>
 
-        </div>
-
-        <!-- LEILOES ATIVOS -->
-        <div class="card">
-            <h2>🔥 Leilões Correndo Agora</h2>
-            <div id="auctions" class="grid"></div>
-        </div>
-
-        <!-- 📦 AREA DO ARREMATADOR -->
-        <div class="card" style="border-left: 5px solid #00ff66;">
-            <h2>📦 Minha Garagem (Itens Arrematados)</h2>
-            
-            <div class="garagem-header">
-                <div class="metrica-card">
-                    <h4>Total de Peças</h4>
-                    <p id="metricCount">0</p>
-                </div>
-                <div class="metrica-card" style="border-left-color: #00ff66;">
-                    <h4>Total Investido</h4>
-                    <p id="metricTotal">R$ 0,00</p>
-                </div>
-            </div>
-
-            <div id="garage" class="grid"></div>
         </div>
 
     </div>
@@ -553,6 +609,36 @@ let base64ImageString = "";
 let currentAdminFilter = "all";
 let presenceChannel = null;
 
+function switchMainTab(tabName) {
+    document.getElementById("mainSectionLeiloes").classList.add("hidden");
+    document.getElementById("mainSectionLoja").classList.add("hidden");
+    document.getElementById("mainSectionGaragem").classList.add("hidden");
+    document.getElementById("mainSectionAdmin").classList.add("hidden");
+
+    document.getElementById("mainTabBtnLeiloes").classList.remove("active");
+    document.getElementById("mainTabBtnLoja").classList.remove("active");
+    document.getElementById("mainTabBtnGaragem").classList.remove("active");
+    let adminBtn = document.getElementById("mainTabBtnAdmin");
+    if(adminBtn) adminBtn.classList.remove("active");
+
+    if (tabName === 'leiloes') {
+        document.getElementById("mainSectionLeiloes").classList.remove("hidden");
+        document.getElementById("mainTabBtnLeiloes").classList.add("active");
+    } else if (tabName === 'loja') {
+        document.getElementById("mainSectionLoja").classList.remove("hidden");
+        document.getElementById("mainTabBtnLoja").classList.add("active");
+        renderStore();
+    } else if (tabName === 'garagem') {
+        document.getElementById("mainSectionGaragem").classList.remove("hidden");
+        document.getElementById("mainTabBtnGaragem").classList.add("active");
+        showGarage();
+    } else if (tabName === 'admin') {
+        document.getElementById("mainSectionAdmin").classList.remove("hidden");
+        if(adminBtn) adminBtn.classList.add("active");
+        renderAdminTables();
+    }
+}
+
 function switchAdminTab(tabName) {
     document.getElementById("adminTabLeilao").classList.add("hidden");
     document.getElementById("adminTabFinanceiro").classList.add("hidden");
@@ -571,6 +657,20 @@ function switchAdminTab(tabName) {
     } else if (tabName === 'painel') {
         document.getElementById("adminTabPainel").classList.remove("hidden");
         document.getElementById("tabBtnPainel").classList.add("active");
+    }
+}
+
+function togglePubTypeFields() {
+    let type = document.getElementById("pubType").value;
+    let labelPrice = document.getElementById("labelPriceOrStart");
+    let fieldDuration = document.getElementById("fieldDuration");
+
+    if(type === 'loja') {
+        labelPrice.innerText = "Preço Fixo de Venda (R$)";
+        fieldDuration.classList.add("hidden");
+    } else {
+        labelPrice.innerText = "Lance Inicial (R$)";
+        fieldDuration.classList.remove("hidden");
     }
 }
 
@@ -704,6 +804,21 @@ function createUser(event) {
     loadFromSupabase();
 }
 
+function deleteUser(event, username) {
+    if(event) event.preventDefault();
+    if(username.toLowerCase() === 'admin') {
+        alert("Não é permitido apagar o usuário administrador principal!");
+        return;
+    }
+
+    if(confirm(`Tem certeza que deseja apagar o usuário "${username}"?`)) {
+        users = users.filter(x => x.user.toLowerCase() !== username.toLowerCase());
+        saveToSupabase('usuarios', users);
+        alert("Usuário removido com sucesso!");
+        loadFromSupabase();
+    }
+}
+
 function changeUserPassword(event) {
     if(event) event.preventDefault();
     let selectedUser = document.getElementById("changePassUser").value;
@@ -735,7 +850,7 @@ function populateSelects() {
     let selectTimer = document.getElementById("adjustTimerAuction");
     if(selectTimer) {
         selectTimer.innerHTML = "";
-        let ativos = auctions.filter(a => a.active);
+        let ativos = auctions.filter(a => a.active && a.isType !== 'loja');
         if(ativos.length === 0) {
             selectTimer.innerHTML = `<option value="">Nenhum leilão ativo</option>`;
         } else {
@@ -767,13 +882,14 @@ function entrarNoPainel(usuario) {
     document.getElementById("system").classList.remove("hidden");
     document.getElementById("currentUser").innerHTML = usuario.user;
 
+    let adminTabBtn = document.getElementById("mainTabBtnAdmin");
     if (usuario.type == "admin") {
-        document.getElementById("adminPanel").classList.remove("hidden");
+        adminTabBtn.classList.remove("hidden");
         populateSelects();
         let pixInput = document.getElementById("adminPixKeyInput");
         if(pixInput && configData.pixKey) pixInput.value = configData.pixKey;
     } else {
-        document.getElementById("adminPanel").classList.add("hidden");
+        adminTabBtn.classList.add("hidden");
     }
     setupPresence();
     load();
@@ -804,14 +920,20 @@ function logout(event) {
     document.getElementById("loginPass").value = "";
 }
 
-function addAuction(event) {
+function addPublication(event) {
     if(event) event.preventDefault();
+    let pubType = document.getElementById("pubType").value;
     let name = document.getElementById("carName").value.trim();
-    let startPrice = Number(document.getElementById("carStart").value);
+    let priceOrStart = Number(document.getElementById("carStart").value);
     let duration = Number(document.getElementById("carTime").value);
 
-    if(!name || startPrice <= 0 || duration <= 0) {
-        alert("Informe o Nome, Lance Inicial e o Tempo!");
+    if(!name || priceOrStart <= 0) {
+        alert("Informe o Nome e o Preço/Valor Inicial!");
+        return;
+    }
+
+    if(pubType === 'leilao' && duration <= 0) {
+        alert("Informe o tempo de duração do leilão em minutos!");
         return;
     }
 
@@ -819,14 +941,15 @@ function addAuction(event) {
 
     auctions.push({
         id: Date.now(),
+        isType: pubType, // 'leilao' ou 'loja'
         name: name,
         category: document.getElementById("carCategory").value.trim() || "Mainline",
         year: document.getElementById("carYear").value.trim() || "N/A",
         photo: finalPhoto,
         desc: document.getElementById("carDesc").value.trim() || "Sem descrição.",
-        price: startPrice,
-        startPrice: startPrice,
-        time: Date.now() + (duration * 60000),
+        price: priceOrStart,
+        startPrice: priceOrStart,
+        time: pubType === 'leilao' ? Date.now() + (duration * 60000) : 0,
         active: true,
         winner: null,
         bids: [],
@@ -845,6 +968,7 @@ function addAuction(event) {
     document.getElementById("imgPreview").style.display = "none";
     base64ImageString = ""; 
     
+    alert(pubType === 'loja' ? "Miniatura cadastrada na Loja com sucesso!" : "Leilão ativado com sucesso!");
     load();
 }
 
@@ -853,7 +977,7 @@ function load() {
     if (!box) return;
     box.innerHTML = "";
 
-    let ativos = auctions.filter(a => a.active);
+    let ativos = auctions.filter(a => a.active && a.isType !== 'loja');
 
     if(ativos.length === 0) {
         box.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: #888; padding: 20px;">Não há leilões rolando no momento.</p>`;
@@ -906,9 +1030,72 @@ function load() {
         box.appendChild(div);
     });
 
+    renderStore();
     renderAdminTables();
     showGarage();
     populateSelects();
+}
+
+function renderStore() {
+    let storeBox = document.getElementById("storeItemsGrid");
+    if(!storeBox) return;
+    storeBox.innerHTML = "";
+
+    // Apenas miniaturas cadastradas pelo admin na loja que ainda estão ativas
+    let storeItems = auctions.filter(a => a.isType === 'loja' && a.active);
+
+    if(storeItems.length === 0) {
+        storeBox.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: #888; padding: 20px;">Nenhuma miniatura disponível na loja no momento.</p>`;
+        return;
+    }
+
+    storeItems.forEach(item => {
+        let div = document.createElement("div");
+        div.className = "leilao-item";
+        div.innerHTML = `
+            <div>
+                <img src="${item.photo}">
+                <h2>${item.name}</h2>
+                <span class="badge" style="background:#00ff66; color:#000;">🏪 Vitrine Oficial</span>
+                <span class="badge">${item.category} (${item.year})</span>
+                <p style="font-size: 13px; color: #bbb; margin: 5px 0;">${item.desc}</p>
+            </div>
+            <div>
+                <hr style="border-color: #222; margin: 10px 0;">
+                <div class="lance-atual" style="margin-bottom:15px;">Preço: <span style="color: #00ff66;">R$ ${item.price.toFixed(2)}</span></div>
+                <button type="button" style="width: 100%; background: #27ae60;" onclick="comprarItemLoja(event, ${item.id})">🛒 COMPRAR AGORA</button>
+            </div>
+        `;
+        storeBox.appendChild(div);
+    });
+}
+
+function comprarItemLoja(event, itemId) {
+    if(event) event.preventDefault();
+    if(!logged) { alert("Você precisa estar logado!"); return; }
+
+    let item = auctions.find(x => x.id == itemId);
+    if(!item || !item.active) { alert("Este item não está mais disponível."); return; }
+
+    if(confirm(`Deseja comprar "${item.name}" por R$ ${item.price.toFixed(2)}?`)) {
+        item.active = false;
+        item.winner = logged.user;
+        item.statusPagamento = 'pendente';
+
+        if (!garages[logged.user]) garages[logged.user] = [];
+        garages[logged.user].push({ 
+            idLeilao: item.id, 
+            name: item.name, 
+            photo: item.photo, 
+            price: item.price, 
+            pago: false 
+        });
+
+        saveToSupabase('garagens', garages);
+        saveToSupabase('leiloes', auctions);
+        alert("Compra realizada com sucesso! Vá em 'Minha Garagem' para enviar o comprovante PIX.");
+        switchMainTab('garagem');
+    }
 }
 
 function changeAdminFilter(filterType) {
@@ -923,7 +1110,7 @@ function changeAdminFilter(filterType) {
 function renderAdminTables() {
     if (!logged || logged.type !== "admin") return;
     
-    // ABA LEILÃO - TABELA MONITORAMENTO
+    // ABA LEILÃO & LOJA - TABELA MONITORAMENTO
     let tbodyLeilao = document.getElementById("adminTableBody");
     tbodyLeilao.innerHTML = "";
 
@@ -931,35 +1118,41 @@ function renderAdminTables() {
     if (currentAdminFilter === "active") filteredAuctions = auctions.filter(a => a.active);
     if (currentAdminFilter === "closed") filteredAuctions = auctions.filter(a => !a.active);
 
-    filteredAuctions.forEach(a => {
-        let statusText = a.active ? `<span style="color:#00ff66; font-weight:bold;">🔥 Ativo</span>` : `<span style="color:#ff3333;">🛑 Encerrado</span>`;
-        let pagStatus = "N/A";
-        
-        if (!a.active && a.winner) {
-            if (a.statusPagamento === 'aprovado') {
-                pagStatus = `<span style="color: #27ae60; font-weight:bold;">🟢 Pago</span>`;
-            } else if (a.statusPagamento === 'analise') {
-                pagStatus = `<span style="color: #f39c12; font-weight:bold;">⏳ Em Análise</span>`;
-            } else {
-                pagStatus = `<span style="color: #aaa;">Pendente</span>`;
+    if(filteredAuctions.length === 0) {
+        tbodyLeilao.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #888;">Nenhum item cadastrado.</td></tr>`;
+    } else {
+        filteredAuctions.forEach(a => {
+            let tipoBadge = a.isType === 'loja' ? `<span style="color:#00ff66; font-weight:bold;">🏪 Loja</span>` : `<span style="color:#ffcc00; font-weight:bold;">🔨 Leilão</span>`;
+            let statusText = a.active ? `<span style="color:#00ff66; font-weight:bold;">🔥 Ativo</span>` : `<span style="color:#ff3333;">🛑 Encerrado</span>`;
+            let pagStatus = "N/A";
+            
+            if (!a.active && a.winner) {
+                if (a.statusPagamento === 'aprovado') {
+                    pagStatus = `<span style="color: #27ae60; font-weight:bold;">🟢 Pago</span>`;
+                } else if (a.statusPagamento === 'analise') {
+                    pagStatus = `<span style="color: #f39c12; font-weight:bold;">⏳ Em Análise</span>`;
+                } else {
+                    pagStatus = `<span style="color: #aaa;">Pendente</span>`;
+                }
             }
-        }
 
-        let actionButtons = `<button type="button" class="btn-danger" style="padding: 6px 10px; font-size:12px; margin-right:5px;" onclick="deleteAuction(event, ${a.id})">Deletar</button>`;
-        if (a.active) {
-            actionButtons += `<button type="button" class="btn-secondary" style="padding: 6px 10px; font-size:12px; background:#d35400;" onclick="forceCloseAuction(event, ${a.id})">Encerrar</button>`;
-        }
+            let actionButtons = `<button type="button" class="btn-danger" style="padding: 6px 10px; font-size:12px; margin-right:5px;" onclick="deleteAuction(event, ${a.id})">Deletar</button>`;
+            if (a.active && a.isType !== 'loja') {
+                actionButtons += `<button type="button" class="btn-secondary" style="padding: 6px 10px; font-size:12px; background:#d35400;" onclick="forceCloseAuction(event, ${a.id})">Encerrar</button>`;
+            }
 
-        tbodyLeilao.innerHTML += `
-            <tr>
-                <td><strong>${a.name}</strong></td>
-                <td>R$ ${a.price.toFixed(2)}</td>
-                <td>${statusText}</td>
-                <td>${a.winner ? '🏆 ' + a.winner + '<br>' + pagStatus : 'Nenhum'}</td>
-                <td>${actionButtons}</td>
-            </tr>
-        `;
-    });
+            tbodyLeilao.innerHTML += `
+                <tr>
+                    <td><strong>${a.name}</strong></td>
+                    <td>${tipoBadge}</td>
+                    <td>R$ ${a.price.toFixed(2)}</td>
+                    <td>${statusText}</td>
+                    <td>${a.winner ? '🏆 ' + a.winner + '<br>' + pagStatus : 'Nenhum'}</td>
+                    <td>${actionButtons}</td>
+                </tr>
+            `;
+        });
+    }
 
     // ABA FINANCEIRO - METRICA & TABELA PIX
     let totalFaturado = auctions.filter(a => !a.active && a.winner).reduce((sum, a) => sum + a.price, 0);
@@ -968,11 +1161,11 @@ function renderAdminTables() {
     let tbodyFinanceiro = document.getElementById("adminFinanceTableBody");
     tbodyFinanceiro.innerHTML = "";
     
-    let fechadosComVencedor = auctions.filter(a => !a.active && a.winner);
-    if(fechadosComVencedor.length === 0) {
-        tbodyFinanceiro.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888;">Nenhum leilão encerrado com vencedor ainda.</td></tr>`;
+    let fechadosComComprador = auctions.filter(a => !a.active && a.winner);
+    if(fechadosComComprador.length === 0) {
+        tbodyFinanceiro.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888;">Nenhuma venda finalizada ainda.</td></tr>`;
     } else {
-        fechadosComVencedor.forEach(a => {
+        fechadosComComprador.forEach(a => {
             let acaoPix = "";
             if (a.statusPagamento === 'aprovado') {
                 acaoPix = `<span style="color: #27ae60; font-weight:bold;">🟢 Pago & Aprovado</span>`;
@@ -993,14 +1186,19 @@ function renderAdminTables() {
         });
     }
 
-    // ABA PAINEL DO ADMIN - TABELA DE USUÁRIOS
+    // ABA USUÁRIOS & SENHAS - TABELA DE USUÁRIOS
     let tbodyUsers = document.getElementById("adminUsersTableBody");
     tbodyUsers.innerHTML = "";
     users.forEach(u => {
+        let btnAcaoUser = u.user.toLowerCase() === 'admin' ? 
+            `<span style="color:#777; font-size:12px;">Protegido</span>` : 
+            `<button type="button" class="btn-danger" style="padding:4px 10px; font-size:12px;" onclick="deleteUser(event, '${u.user}')">🗑️ Apagar</button>`;
+
         tbodyUsers.innerHTML += `
             <tr>
                 <td><strong>${u.user}</strong></td>
                 <td><span class="badge" style="background: ${u.type === 'admin' ? '#e10600' : '#444'}; color: #fff;">${u.type.toUpperCase()}</span></td>
+                <td>${btnAcaoUser}</td>
             </tr>
         `;
     });
@@ -1061,7 +1259,7 @@ function saveSniper(event, id) {
 function checkSnipers() {
     let alterou = false;
     auctions.forEach(a => {
-        if (!a.active || !a.snipers) return;
+        if (!a.active || a.isType === 'loja' || !a.snipers) return;
         
         if (a.bids.length > 0) {
             let liderAtual = a.bids[a.bids.length - 1].user;
@@ -1183,7 +1381,7 @@ function processarEncerramento(a) {
 setInterval(() => {
     let mudou = false;
     auctions.forEach(a => {
-        if (!a.active) return;
+        if (!a.active || a.isType === 'loja') return;
         let diff = a.time - Date.now();
         let timer = document.getElementById("timer" + a.id);
 
@@ -1217,7 +1415,7 @@ function showGarage() {
     box.innerHTML = "";
 
     if(items.length === 0) {
-        box.innerHTML = `<p style="grid-column: 1/-1; color: #888; text-align: center;">Sua garagem ainda está vazia. Arremate um leilão!</p>`;
+        box.innerHTML = `<p style="grid-column: 1/-1; color: #888; text-align: center;">Sua garagem ainda está vazia. Arremate um leilão ou compre na loja!</p>`;
         return;
     }
 
@@ -1287,7 +1485,7 @@ function enviarComprovante(auctionId) {
 
 function deleteAuction(event, id) {
     if(event) event.preventDefault();
-    if (confirm("Deseja remover esse leilão?")) {
+    if (confirm("Deseja remover esse item?")) {
         auctions = auctions.filter(x => x.id != id);
         saveToSupabase('leiloes', auctions);
         load();
