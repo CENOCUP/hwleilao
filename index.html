@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HW Auction - Leilão Hot Wheels Ultra</title>
+    <title>Diecast Arena - Leilão Hot Wheels & Miniaturas</title>
     <!-- Script do Supabase para rodar direto no navegador -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -270,12 +270,20 @@
             border-radius: 6px;
             margin-top: 10px;
         }
+
+        .modal-pagamento {
+            background: #252525;
+            border: 1px solid #444;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>🏎️ HW AUCTION</h1>
+    <h1>🏎️ DIECAST ARENA</h1>
     <small>Painel de Leilões & Colecionáveis</small>
 </header>
 
@@ -322,6 +330,32 @@
                     <p id="adminMetricTotal" style="color: #00ff66;">R$ 0,00</p>
                 </div>
             </div>
+
+            <h3>💳 Configurar Chave PIX para Pagamentos</h3>
+            <div style="display: flex; gap: 10px; align-items: flex-end;">
+                <div style="flex: 1;">
+                    <label>Sua Chave PIX (CPF, Telefone, E-mail ou Aleatória)</label>
+                    <input id="adminPixKeyInput" placeholder="Ex: 11999999999 ou seu@email.com">
+                </div>
+                <button type="button" style="background: #27ae60; margin-bottom: 16px;" onclick="saveAdminPix(event)">Salvar Chave PIX</button>
+            </div>
+
+            <hr style="border-color: #333; margin: 20px 0;">
+
+            <h3>⏱️ Ajustador Manual de Relógio (Leilões Ativos)</h3>
+            <div class="form-grid" style="align-items: flex-end;">
+                <div>
+                    <label>Selecionar Leilão Ativo</label>
+                    <select id="adjustTimerAuction"></select>
+                </div>
+                <div>
+                    <label>Ajustar Minutos (+ Adiciona / - Subtrai)</label>
+                    <input id="adjustTimerMinutes" type="number" placeholder="Ex: 5 ou -2" value="5">
+                </div>
+                <button type="button" style="background: #e67e22; margin-bottom: 16px;" onclick="adjustAuctionTimer(event)">Ajustar Tempo</button>
+            </div>
+
+            <hr style="border-color: #333; margin: 20px 0;">
 
             <h3>🔑 Gerenciar Senhas dos Usuários</h3>
             <div class="form-grid" style="align-items: flex-end;">
@@ -390,10 +424,9 @@
                     <thead>
                         <tr>
                             <th>Miniatura</th>
-                            <th>Lance Inicial</th>
-                            <th>Lance Atual</th>
+                            <th>Preço Final</th>
                             <th>Status</th>
-                            <th>Vencedor</th>
+                            <th>Vencedor & Pagamento</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
@@ -438,6 +471,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let users = [{ user: "admin", pass: "1234", type: "admin" }];
 let auctions = [];
 let garages = {};
+let configData = { pixKey: "" };
 let logged = null;
 let base64ImageString = ""; 
 let currentAdminFilter = "all";
@@ -453,10 +487,13 @@ async function loadFromSupabase() {
     let { data: resGarages } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'garagens').single();
     if (resGarages) garages = JSON.parse(resGarages.conteudo);
 
+    let { data: resConfig } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'configuracoes').single();
+    if (resConfig) configData = JSON.parse(resConfig.conteudo);
+
     checkSavedSession();
     load();
-    populateUserSelect();
-    checkSnipers(); // Executa o motor do sniper caso haja lances novos
+    populateSelects();
+    checkSnipers();
 }
 
 async function saveToSupabase(id, obj) {
@@ -471,16 +508,11 @@ function initRealtime() {
     .subscribe();
 }
 
-// Configuração do canal de presença para contar usuários online em tempo real
 function setupPresence() {
     if (!logged) return;
     
     presenceChannel = supabaseClient.channel('online-users', {
-        config: {
-            presence: {
-                key: logged.user,
-            },
-        },
+        config: { presence: { key: logged.user } },
     });
 
     presenceChannel
@@ -528,6 +560,32 @@ function previewAndCompressImage(input) {
     }
 }
 
+function saveAdminPix(event) {
+    if(event) event.preventDefault();
+    let pix = document.getElementById("adminPixKeyInput").value.trim();
+    if(!pix) { alert("Digite uma chave PIX válida!"); return; }
+    
+    configData.pixKey = pix;
+    saveToSupabase('configuracoes', configData);
+    alert("Chave PIX salva com sucesso para todos os compradores!");
+}
+
+function adjustAuctionTimer(event) {
+    if(event) event.preventDefault();
+    let auctionId = document.getElementById("adjustTimerAuction").value;
+    let minutosDelta = Number(document.getElementById("adjustTimerMinutes").value);
+
+    let a = auctions.find(x => x.id == auctionId);
+    if (!a) { alert("Selecione um leilão válido!"); return; }
+
+    a.time = a.time + (minutosDelta * 60000);
+    if (a.time < Date.now()) a.time = Date.now(); // Não deixa ir para o passado negativo
+
+    saveToSupabase('leiloes', auctions);
+    alert(`Relógio do leilão "${a.name}" ajustado com sucesso!`);
+    load();
+}
+
 function createUser(event) {
     if(event) event.preventDefault();
     let u = document.getElementById("newUser").value.trim();
@@ -568,13 +626,27 @@ function changeUserPassword(event) {
     }
 }
 
-function populateUserSelect() {
-    let select = document.getElementById("changePassUser");
-    if(!select) return;
-    select.innerHTML = "";
-    users.forEach(u => {
-        select.innerHTML += `<option value="${u.user}">${u.user} (${u.type})</option>`;
-    });
+function populateSelects() {
+    let selectPass = document.getElementById("changePassUser");
+    if(selectPass) {
+        selectPass.innerHTML = "";
+        users.forEach(u => {
+            selectPass.innerHTML += `<option value="${u.user}">${u.user} (${u.type})</option>`;
+        });
+    }
+
+    let selectTimer = document.getElementById("adjustTimerAuction");
+    if(selectTimer) {
+        selectTimer.innerHTML = "";
+        let ativos = auctions.filter(a => a.active);
+        if(ativos.length === 0) {
+            selectTimer.innerHTML = `<option value="">Nenhum leilão ativo</option>`;
+        } else {
+            ativos.forEach(a => {
+                selectTimer.innerHTML += `<option value="${a.id}">${a.name} (Atual: R$ ${a.price.toFixed(2)})</option>`;
+            });
+        }
+    }
 }
 
 function login(event) {
@@ -600,7 +672,9 @@ function entrarNoPainel(usuario) {
 
     if (usuario.type == "admin") {
         document.getElementById("adminPanel").classList.remove("hidden");
-        populateUserSelect();
+        populateSelects();
+        let pixInput = document.getElementById("adminPixKeyInput");
+        if(pixInput && configData.pixKey) pixInput.value = configData.pixKey;
     } else {
         document.getElementById("adminPanel").classList.add("hidden");
     }
@@ -659,7 +733,7 @@ function addAuction(event) {
         active: true,
         winner: null,
         bids: [],
-        snipers: {} // Guarda o teto de lance automático de cada usuário { "nome_usuario": valor_maximo }
+        snipers: {}
     });
 
     saveToSupabase('leiloes', auctions);
@@ -737,6 +811,7 @@ function load() {
 
     renderAdminTable();
     showGarage();
+    populateSelects();
 }
 
 function changeAdminFilter(filterType) {
@@ -762,8 +837,19 @@ function renderAdminTable() {
 
     filteredAuctions.forEach(a => {
         let statusText = a.active ? `<span style="color:#00ff66; font-weight:bold;">🔥 Ativo</span>` : `<span style="color:#ff3333;">🛑 Encerrado</span>`;
-        let actionButtons = `<button type="button" class="btn-danger" style="padding: 6px 10px; font-size:12px; margin-right:5px;" onclick="deleteAuction(event, ${a.id})">Deletar</button>`;
+        let pagStatus = "N/A";
         
+        if (!a.active && a.winner) {
+            if (a.statusPagamento === 'aprovado') {
+                pagStatus = `<span style="color: #27ae60; font-weight:bold;">🟢 Pago & Aprovado</span>`;
+            } else if (a.statusPagamento === 'analise') {
+                pagStatus = `<button type="button" style="background:#d35400; padding:4px 8px; font-size:11px;" onclick="verComprovante(${a.id})">🔍 Ver Comprovante</button>`;
+            } else {
+                pagStatus = `<span style="color: #f39c12;">Aguardando Pagamento</span>`;
+            }
+        }
+
+        let actionButtons = `<button type="button" class="btn-danger" style="padding: 6px 10px; font-size:12px; margin-right:5px;" onclick="deleteAuction(event, ${a.id})">Deletar</button>`;
         if (a.active) {
             actionButtons += `<button type="button" class="btn-secondary" style="padding: 6px 10px; font-size:12px; background:#d35400;" onclick="forceCloseAuction(event, ${a.id})">Encerrar</button>`;
         }
@@ -771,17 +857,47 @@ function renderAdminTable() {
         tbody.innerHTML += `
             <tr>
                 <td><strong>${a.name}</strong></td>
-                <td>R$ ${a.startPrice.toFixed(2)}</td>
                 <td>R$ ${a.price.toFixed(2)}</td>
                 <td>${statusText}</td>
-                <td>${a.winner ? '🏆 ' + a.winner : 'Nenhum'}</td>
+                <td>${a.winner ? '🏆 ' + a.winner + '<br>' + pagStatus : 'Nenhum'}</td>
                 <td>${actionButtons}</td>
             </tr>
         `;
     });
 }
 
-// Configurar o Teto Automático do Sniper
+function verComprovante(auctionId) {
+    let a = auctions.find(x => x.id == auctionId);
+    if (!a || !a.comprovante) return;
+
+    let win = window.open("");
+    win.document.write(`
+        <body style="background:#141414; color:#fff; text-align:center; font-family:sans-serif; padding:20px;">
+            <h2>Comprovante de Pagamento - ${a.winner}</h2>
+            <p>Item: <strong>${a.name}</strong> | Valor: <strong>R$ ${a.price.toFixed(2)}</strong></p>
+            <img src="${a.comprovante}" style="max-width:100%; max-height:70vh; border-radius:8px; border:2px solid #ffcc00; margin-bottom:20px;"><br>
+            <button onclick="window.opener.aprovarPagamento(${a.id}); window.close();" style="background:#27ae60; color:#fff; padding:12px 25px; border:none; font-size:16px; border-radius:6px; cursor:pointer; font-weight:bold;">✅ Aprovar Pagamento</button>
+        </body>
+    `);
+}
+
+async function aprovarPagamento(auctionId) {
+    let a = auctions.find(x => x.id == auctionId);
+    if (a) {
+        a.statusPagamento = 'aprovado';
+        
+        if (garages[a.winner]) {
+            let itemGaragem = garages[a.winner].find(x => x.idLeilao == a.id);
+            if(itemGaragem) itemGaragem.pago = true;
+            await saveToSupabase('garagens', garages);
+        }
+
+        await saveToSupabase('leiloes', auctions);
+        alert("Pagamento aprovado com sucesso!");
+        load();
+    }
+}
+
 function saveSniper(event, id) {
     if(event) event.preventDefault();
     if(!logged) { alert("Faça login!"); return; }
@@ -802,7 +918,6 @@ function saveSniper(event, id) {
     load();
 }
 
-// MOTOR DO SNIPER: Verifica se algum usuário configurou teto e dispara contra lances rivais
 function checkSnipers() {
     let alterou = false;
     auctions.forEach(a => {
@@ -811,21 +926,16 @@ function checkSnipers() {
         if (a.bids.length > 0) {
             let liderAtual = a.bids[a.bids.length - 1].user;
             
-            // Encontra se há outro usuário com teto maior que o preço atual e que não seja o líder
             for (let [userSniper, tetoMax] of Object.entries(a.snipers)) {
                 if (userSniper.toLowerCase() !== liderAtual.toLowerCase() && tetoMax > a.price) {
-                    // Calcula o novo preço (incremento padrão de R$ 2 ou o suficiente para cobrir)
                     let novoLance = a.price + 2;
-                    if (novoLance > tetoMax) {
-                        novoLance = tetoMax; // Se o teto for menor que o incremento total, assume o teto exato
-                    }
+                    if (novoLance > tetoMax) novoLance = tetoMax;
 
                     if (novoLance > a.price) {
                         a.price = novoLance;
                         a.bids.push({ user: userSniper, value: novoLance });
                         alterou = true;
                         
-                        // Estica o tempo se faltar menos de 30 segundos
                         let tempoRestante = a.time - Date.now();
                         if (tempoRestante > 0 && tempoRestante < 30000) {
                             a.time = Date.now() + 30000;
@@ -891,7 +1001,7 @@ function executeBid(auction, value) {
     }
 
     saveToSupabase('leiloes', auctions);
-    checkSnipers(); // Dispara o motor do sniper logo após um lance manual
+    checkSnipers();
     load();
 }
 
@@ -901,8 +1011,34 @@ function forceCloseAuction(event, id) {
         let auction = auctions.find(x => x.id == id);
         if (auction) {
             auction.time = Date.now(); 
+            processarEncerramento(auction);
         }
     }
+}
+
+function processarEncerramento(a) {
+    a.active = false;
+    if (a.bids.length > 0) {
+        let winner = a.bids[a.bids.length - 1];
+        a.winner = winner.user;
+        a.statusPagamento = 'pendente';
+        
+        if (!garages[winner.user]) garages[winner.user] = [];
+        
+        // Evita duplicar se já foi adicionado
+        let jaExiste = garages[winner.user].some(x => x.idLeilao == a.id);
+        if (!jaExiste) {
+            garages[winner.user].push({ 
+                idLeilao: a.id, 
+                name: a.name, 
+                photo: a.photo, 
+                price: a.price, 
+                pago: false 
+            });
+        }
+        saveToSupabase('garagens', garages);
+    }
+    saveToSupabase('leiloes', auctions);
 }
 
 setInterval(() => {
@@ -913,15 +1049,7 @@ setInterval(() => {
         let timer = document.getElementById("timer" + a.id);
 
         if (diff <= 0) {
-            a.active = false;
-            if (a.bids.length > 0) {
-                let winner = a.bids[a.bids.length - 1];
-                a.winner = winner.user;
-                if (!garages[winner.user]) garages[winner.user] = [];
-                garages[winner.user].push({ name: a.name, photo: a.photo, price: a.price });
-                saveToSupabase('garagens', garages);
-            }
-            saveToSupabase('leiloes', auctions);
+            processarEncerramento(a);
             mudou = true;
         } else if (timer) {
             let sec = Math.floor(diff / 1000);
@@ -949,18 +1077,73 @@ function showGarage() {
     document.getElementById("metricTotal").innerText = "R$ " + totalGasto.toFixed(2);
     box.innerHTML = "";
 
+    if(items.length === 0) {
+        box.innerHTML = `<p style="grid-column: 1/-1; color: #888; text-align: center;">Sua garagem ainda está vazia. Arremate um leilão!</p>`;
+        return;
+    }
+
     items.forEach(x => {
+        let auctionRef = auctions.find(ac => ac.id == x.idLeilao);
+        let statusPag = auctionRef ? auctionRef.statusPagamento : (x.pago ? 'aprovado' : 'pendente');
+
+        let statusHtml = '';
+        if (statusPag === 'aprovado') {
+            statusHtml = `<p style="margin:5px 0 0 0; color:#27ae60; font-size:13px; font-weight:bold;">🟢 Pagamento Aprovado</p>`;
+        } else if (statusPag === 'analise') {
+            statusHtml = `<p style="margin:5px 0 0 0; color:#f39c12; font-size:13px; font-weight:bold;">⏳ Comprovante em Análise</p>`;
+        } else {
+            statusHtml = `
+                <div class="modal-pagamento">
+                    <p style="margin:0 0 5px 0; font-size:12px; color:#ffcc00; font-weight:bold;">💳 PAGAR VIA PIX</p>
+                    <p style="margin:0 0 8px 0; font-size:12px; color:#bbb;">Chave: <span style="color:#fff; user-select:all;">${configData.pixKey || 'Não cadastrada pelo Admin'}</span></p>
+                    <label style="font-size:11px; color:#aaa; display:block; margin-bottom:3px;">Enviar Comprovante (Print):</label>
+                    <input type="file" accept="image/*" id="comprovanteFile${x.idLeilao}" style="font-size:11px; padding:4px; margin-bottom:5px;">
+                    <button type="button" style="background:#27ae60; width:100%; padding:6px; font-size:12px;" onclick="enviarComprovante(${x.idLeilao})">📤 Enviar Comprovante</button>
+                </div>
+            `;
+        }
+
         let div = document.createElement("div");
         div.className = "leilao-item";
         div.style.background = "#152a1c";
-        div.style.borderColor = "#00ff66";
+        div.style.borderColor = x.pago ? "#00ff66" : "#444";
         div.innerHTML = `
-            <img src="${x.photo}">
-            <h3 style="margin: 10px 0 5px 0;">🏆 ${x.name}</h3>
-            <p style="margin: 0; font-size:14px; color:#00ff66; font-weight:bold;">Arrematado por: R$ ${x.price.toFixed(2)}</p>
+            <div>
+                <img src="${x.photo}">
+                <h3 style="margin: 10px 0 5px 0;">🏆 ${x.name}</h3>
+                <p style="margin: 0; font-size:14px; color:#00ff66; font-weight:bold;">Valor: R$ ${x.price.toFixed(2)}</p>
+            </div>
+            <div>
+                ${statusHtml}
+            </div>
         `;
         box.appendChild(div);
     });
+}
+
+function enviarComprovante(auctionId) {
+    let fileInput = document.getElementById("comprovanteFile" + auctionId);
+    let file = fileInput.files[0];
+
+    if(!file) {
+        alert("Selecione a imagem do comprovante antes de enviar!");
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        let base64Comp = e.target.result;
+        
+        let a = auctions.find(x => x.id == auctionId);
+        if (a) {
+            a.comprovante = base64Comp;
+            a.statusPagamento = 'analise';
+            saveToSupabase('leiloes', auctions);
+            alert("Comprovante enviado com sucesso! O administrador irá conferir em breve.");
+            load();
+        }
+    }
+    reader.readAsDataURL(file);
 }
 
 function deleteAuction(event, id) {
