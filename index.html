@@ -37,8 +37,8 @@
             letter-spacing: 2px;
         }
         .container {
-            width: 95%;
-            max-width: 1200px;
+            width: 98%;
+            max-width: 1400px;
             margin: 20px auto;
         }
         .card {
@@ -125,7 +125,7 @@
         }
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 25px;
         }
         .leilao-item {
@@ -137,12 +137,14 @@
             flex-direction: column;
             justify-content: space-between;
         }
+        /* CORREÇÃO DO ENQUADRAMENTO DA FOTO (EXIBE A IMAGEM INTEIRA SEM CORTES) */
         .leilao-item img {
             width: 100%;
-            height: 180px;
-            object-fit: cover;
+            height: 220px;
+            object-fit: contain;
+            background: #111;
             border-radius: 6px;
-            background: #222;
+            border: 1px solid #2a2a2a;
         }
         .badge {
             background: #ffcc00;
@@ -261,6 +263,8 @@
             border-radius: 8px;
             border: 2px dashed #444;
             display: none;
+            object-fit: contain;
+            background: #111;
         }
         
         .sniper-box {
@@ -279,7 +283,7 @@
             margin-top: 10px;
         }
 
-        /* SISTEMA DE ABAS PRINCIPAIS DO SISTEMA (CLIENTE/ADMIN) */
+        /* NAVEGAÇÃO PRINCIPAL */
         .main-tabs-nav {
             display: flex;
             gap: 10px;
@@ -310,7 +314,7 @@
             box-shadow: 0 4px 12px rgba(225, 6, 0, 0.4);
         }
 
-        /* ESTILO DAS ABAS DO ADMIN */
+        /* ABAS DO ADMIN */
         .admin-tabs-nav {
             display: flex;
             gap: 10px;
@@ -346,7 +350,7 @@
 
 <header>
     <h1>🏎️ DIECAST ARENA</h1>
-    <small>Painel de Leilões, Loja & Colecionáveis</small>
+    <small>Painel de Leilões, Loja da Comunidade & Colecionáveis</small>
 </header>
 
 <div class="container">
@@ -382,10 +386,10 @@
             </div>
         </div>
 
-        <!-- 🧭 NAVEGAÇÃO PRINCIPAL DAS ABAS (CLIENTE & ADMIN) -->
+        <!-- 🧭 NAVEGAÇÃO PRINCIPAL -->
         <div class="main-tabs-nav">
             <button type="button" class="btn-main-tab active" id="mainTabBtnLeiloes" onclick="switchMainTab('leiloes')">🔥 Leilões Ativos</button>
-            <button type="button" class="btn-main-tab" id="mainTabBtnLoja" onclick="switchMainTab('loja')">🛒 Loja (Miniaturas do Admin)</button>
+            <button type="button" class="btn-main-tab" id="mainTabBtnLoja" onclick="switchMainTab('loja')">🛒 Loja da Comunidade</button>
             <button type="button" class="btn-main-tab" id="mainTabBtnGaragem" onclick="switchMainTab('garagem')">📦 Minha Garagem</button>
             <button type="button" class="btn-main-tab hidden" id="mainTabBtnAdmin" onclick="switchMainTab('admin')">🛠️ Painel do Admin</button>
         </div>
@@ -396,10 +400,50 @@
             <div id="auctions" class="grid"></div>
         </div>
 
-        <!-- ================= ABA 2: LOJA (APENAS MINIS DO ADMIN) ================= -->
+        <!-- ================= ABA 2: LOJA (ABERTA PARA TODOS OS USUÁRIOS) ================= -->
         <div id="mainSectionLoja" class="card hidden">
-            <h2>🛒 Vitrine da Loja Oficial</h2>
-            <p style="color: #aaa; font-size: 13px; margin-bottom: 20px;">Miniaturas exclusivas postadas diretamente pelo Admin com preço fixo para compra imediata.</p>
+            <h2>🛒 Vitrine da Loja (Comunidade)</h2>
+            <p style="color: #aaa; font-size: 13px; margin-bottom: 20px;">Aqui qualquer colecionador pode anunciar miniaturas para venda direta com preço fixo!</p>
+            
+            <!-- FORMULÁRIO RÁPIDO PARA ANUNCIAR NA LOJA -->
+            <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 25px;">
+                <h3 style="margin-top:0; color:#ffcc00; font-size:16px;">➕ Anunciar Miniatura na Loja</h3>
+                <div class="form-grid">
+                    <div>
+                        <label>Nome da Hot Wheels</label>
+                        <input id="storeCarName" placeholder="Ex: '67 Camaro">
+                    </div>
+                    <div>
+                        <label>Categoria / Série</label>
+                        <input id="storeCarCategory" placeholder="Ex: Mainline / RLC">
+                    </div>
+                    <div>
+                        <label>Ano</label>
+                        <input id="storeCarYear" placeholder="Ex: 2024">
+                    </div>
+                    <div>
+                        <label>Preço Fixo (R$)</label>
+                        <input id="storeCarPrice" type="number" step="0.01" placeholder="0.00">
+                    </div>
+                </div>
+                <label>Foto da Miniatura</label>
+                <input id="storeCarPhotoFile" type="file" accept="image/*" capture="environment" onchange="previewAndCompressStoreImage(this)">
+                
+                <div id="imgPreviewLojaContainer">
+                    <img id="imgPreviewLoja" src="" alt="Preview">
+                </div>
+
+                <label>Descrição / Estado</label>
+                <textarea id="storeCarDesc" placeholder="Detalhes da peça, blister, etc..."></textarea>
+                <button type="button" style="background: #27ae60;" onclick="publicarNaLoja(event)">🚀 Colocar à Venda na Loja</button>
+            </div>
+
+            <!-- FILTROS DE VISUALIZAÇÃO DA LOJA -->
+            <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+                <button type="button" class="btn-secondary btn-filter active" id="storeFilterAll" onclick="changeStoreFilter('all')">Todas as Peças</button>
+                <button type="button" class="btn-secondary btn-filter" id="storeFilterMine" onclick="changeStoreFilter('mine')">Meus Anúncios</button>
+            </div>
+
             <div id="storeItemsGrid" class="grid"></div>
         </div>
 
@@ -421,28 +465,20 @@
             <div id="garage" class="grid"></div>
         </div>
 
-        <!-- ================= ABA 4: PAINEL DO ADMIN (COM 3 ABAS INTERNAS) ================= -->
+        <!-- ================= ABA 4: PAINEL DO ADMIN ================= -->
         <div id="mainSectionAdmin" class="hidden card" style="border: 1px solid #ffcc00;">
             <h2>🛠️ Centro de Controle do Administrador</h2>
             
-            <!-- NAVEGAÇÃO DAS ABAS INTERNAS DO ADMIN -->
             <div class="admin-tabs-nav">
-                <button type="button" class="btn-admin-tab active" id="tabBtnLeilao" onclick="switchAdminTab('leilao')">🔨 LEILÕES & LOJA</button>
-                <button type="button" class="btn-admin-tab" id="tabBtnFinanceiro" onclick="switchAdminTab('financeiro')">💰 FINANCEIRO</button>
+                <button type="button" class="btn-admin-tab active" id="tabBtnLeilao" onclick="switchAdminTab('leilao')">🔨 CADASTRAR LEILÃO</button>
+                <button type="button" class="btn-admin-tab" id="tabBtnFinanceiro" onclick="switchAdminTab('financeiro')">💰 FINANCEIRO & PIX</button>
                 <button type="button" class="btn-admin-tab" id="tabBtnPainel" onclick="switchAdminTab('painel')">🛠️ USUÁRIOS & SENHAS</button>
             </div>
 
-            <!-- ================= CONTEÚDO: ADMIN - ABA LEILÃO & LOJA ================= -->
+            <!-- ================= CONTEÚDO: ADMIN - LEILÃO ================= -->
             <div id="adminTabLeilao">
-                <h3>➕ Cadastrar Nova Miniatura</h3>
+                <h3>➕ Cadastrar Novo Leilão</h3>
                 <div class="form-grid">
-                    <div>
-                        <label>Tipo de Publicação</label>
-                        <select id="pubType" onchange="togglePubTypeFields()">
-                            <option value="leilao">Leilão (Lance e Tempo)</option>
-                            <option value="loja">Loja (Preço Fixo / Venda Direta)</option>
-                        </select>
-                    </div>
                     <div>
                         <label>Nome da Hot Wheels</label>
                         <input id="carName" placeholder="Ex: '67 Camaro">
@@ -458,11 +494,11 @@
                         <label>Ano de Lançamento</label>
                         <input id="carYear" placeholder="Ex: 2024">
                     </div>
-                    <div id="fieldPriceOrStart">
-                        <label id="labelPriceOrStart">Lance Inicial (R$)</label>
+                    <div>
+                        <label>Lance Inicial (R$)</label>
                         <input id="carStart" type="number" placeholder="0.00">
                     </div>
-                    <div id="fieldDuration">
+                    <div>
                         <label>Duração do Leilão (Minutos)</label>
                         <input id="carTime" type="number" placeholder="Ex: 10">
                     </div>
@@ -478,7 +514,7 @@
                 <label>Descrição do Item / Estado da Cartela</label>
                 <textarea id="carDesc" placeholder="Detalhes sobre a miniatura..."></textarea>
                 
-                <button type="button" style="background: #27ae60;" onclick="addPublication(event)">🚀 Publicar na Plataforma</button>
+                <button type="button" style="background: #27ae60;" onclick="addAuction(event)">🚀 Iniciar Leilão</button>
 
                 <hr style="border-color: #333; margin: 30px 0;">
 
@@ -497,10 +533,10 @@
 
                 <hr style="border-color: #333; margin: 30px 0;">
 
-                <h3>📊 Monitoramento Geral de Itens (Leilões & Loja)</h3>
+                <h3>📊 Monitoramento Geral de Leilões</h3>
                 <div style="margin-bottom: 10px;">
                     <button type="button" class="btn-secondary btn-filter active" id="filterAll" onclick="changeAdminFilter('all')">Todos</button>
-                    <button type="button" class="btn-secondary btn-filter" id="filterActive" onclick="changeAdminFilter('active')">Ativos / Na Loja</button>
+                    <button type="button" class="btn-secondary btn-filter" id="filterActive" onclick="changeAdminFilter('active')">Ativos</button>
                     <button type="button" class="btn-secondary btn-filter" id="filterClosed" onclick="changeAdminFilter('closed')">Encerrados</button>
                 </div>
                 <div class="admin-table-container">
@@ -508,10 +544,9 @@
                         <thead>
                             <tr>
                                 <th>Miniatura</th>
-                                <th>Tipo</th>
-                                <th>Preço / Lance</th>
+                                <th>Lance Atual</th>
                                 <th>Status</th>
-                                <th>Vencedor / Comprador</th>
+                                <th>Vencedor</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
@@ -520,7 +555,7 @@
                 </div>
             </div>
 
-            <!-- ================= CONTEÚDO: ADMIN - ABA FINANCEIRO ================= -->
+            <!-- ================= CONTEÚDO: ADMIN - FINANCEIRO ================= -->
             <div id="adminTabFinanceiro" class="hidden">
                 <div class="garagem-header">
                     <div class="metrica-card" style="border-left-color: #27ae60;">
@@ -557,7 +592,7 @@
                 </div>
             </div>
 
-            <!-- ================= CONTEÚDO: ADMIN - ABA USUÁRIOS & SENHAS ================= -->
+            <!-- ================= CONTEÚDO: ADMIN - USUÁRIOS ================= -->
             <div id="adminTabPainel" class="hidden">
                 <h3>🔑 Gerenciar Senhas dos Usuários</h3>
                 <div class="form-grid" style="align-items: flex-end;">
@@ -602,11 +637,14 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let users = [{ user: "admin", pass: "1234", type: "admin" }];
 let auctions = [];
+let storeItems = [];
 let garages = {};
 let configData = { pixKey: "" };
 let logged = null;
 let base64ImageString = ""; 
+let base64StoreImageString = "";
 let currentAdminFilter = "all";
+let currentStoreFilter = "all";
 let presenceChannel = null;
 
 function switchMainTab(tabName) {
@@ -660,26 +698,15 @@ function switchAdminTab(tabName) {
     }
 }
 
-function togglePubTypeFields() {
-    let type = document.getElementById("pubType").value;
-    let labelPrice = document.getElementById("labelPriceOrStart");
-    let fieldDuration = document.getElementById("fieldDuration");
-
-    if(type === 'loja') {
-        labelPrice.innerText = "Preço Fixo de Venda (R$)";
-        fieldDuration.classList.add("hidden");
-    } else {
-        labelPrice.innerText = "Lance Inicial (R$)";
-        fieldDuration.classList.remove("hidden");
-    }
-}
-
 async function loadFromSupabase() {
     let { data: resUsers } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'usuarios').single();
     if (resUsers) users = JSON.parse(resUsers.conteudo);
 
     let { data: resAuctions } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'leiloes').single();
     if (resAuctions) auctions = JSON.parse(resAuctions.conteudo);
+
+    let { data: resStore } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'loja_itens').single();
+    if (resStore) storeItems = JSON.parse(resStore.conteudo);
 
     let { data: resGarages } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'garagens').single();
     if (resGarages) garages = JSON.parse(resGarages.conteudo);
@@ -738,18 +765,41 @@ function previewAndCompressImage(input) {
             img.onload = function() {
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
-                
-                const maxWidth = 600;
+                const maxWidth = 800;
                 const scale = maxWidth / img.width;
                 canvas.width = maxWidth;
                 canvas.height = img.height * scale;
-                
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                
-                base64ImageString = canvas.toDataURL('image/jpeg', 0.7);
+                base64ImageString = canvas.toDataURL('image/jpeg', 0.8);
                 
                 const preview = document.getElementById("imgPreview");
                 preview.src = base64ImageString;
+                preview.style.display = "inline-block";
+            }
+        }
+        reader.readAsDataURL(file);
+    }
+}
+
+function previewAndCompressStoreImage(input) {
+    const file = input.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const maxWidth = 800;
+                const scale = maxWidth / img.width;
+                canvas.width = maxWidth;
+                canvas.height = img.height * scale;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                base64StoreImageString = canvas.toDataURL('image/jpeg', 0.8);
+                
+                const preview = document.getElementById("imgPreviewLoja");
+                preview.src = base64StoreImageString;
                 preview.style.display = "inline-block";
             }
         }
@@ -764,7 +814,7 @@ function saveAdminPix(event) {
     
     configData.pixKey = pix;
     saveToSupabase('configuracoes', configData);
-    alert("Chave PIX salva com sucesso para todos os compradores!");
+    alert("Chave PIX salva com sucesso!");
 }
 
 function adjustAuctionTimer(event) {
@@ -779,7 +829,7 @@ function adjustAuctionTimer(event) {
     if (a.time < Date.now()) a.time = Date.now();
 
     saveToSupabase('leiloes', auctions);
-    alert(`Relógio do leilão "${a.name}" ajustado com sucesso!`);
+    alert(`Relógio do leilão "${a.name}" ajustado!`);
     load();
 }
 
@@ -807,14 +857,14 @@ function createUser(event) {
 function deleteUser(event, username) {
     if(event) event.preventDefault();
     if(username.toLowerCase() === 'admin') {
-        alert("Não é permitido apagar o usuário administrador principal!");
+        alert("Não é permitido apagar o administrador!");
         return;
     }
 
     if(confirm(`Tem certeza que deseja apagar o usuário "${username}"?`)) {
         users = users.filter(x => x.user.toLowerCase() !== username.toLowerCase());
         saveToSupabase('usuarios', users);
-        alert("Usuário removido com sucesso!");
+        alert("Usuário removido!");
         loadFromSupabase();
     }
 }
@@ -824,10 +874,7 @@ function changeUserPassword(event) {
     let selectedUser = document.getElementById("changePassUser").value;
     let newPassword = document.getElementById("changePassNew").value.trim();
 
-    if(!newPassword) {
-        alert("Digite a nova senha!");
-        return;
-    }
+    if(!newPassword) { alert("Digite a nova senha!"); return; }
 
     let userIndex = users.findIndex(x => x.user === selectedUser);
     if(userIndex !== -1) {
@@ -850,7 +897,7 @@ function populateSelects() {
     let selectTimer = document.getElementById("adjustTimerAuction");
     if(selectTimer) {
         selectTimer.innerHTML = "";
-        let ativos = auctions.filter(a => a.active && a.isType !== 'loja');
+        let ativos = auctions.filter(a => a.active);
         if(ativos.length === 0) {
             selectTimer.innerHTML = `<option value="">Nenhum leilão ativo</option>`;
         } else {
@@ -920,20 +967,14 @@ function logout(event) {
     document.getElementById("loginPass").value = "";
 }
 
-function addPublication(event) {
+function addAuction(event) {
     if(event) event.preventDefault();
-    let pubType = document.getElementById("pubType").value;
     let name = document.getElementById("carName").value.trim();
-    let priceOrStart = Number(document.getElementById("carStart").value);
+    let start = Number(document.getElementById("carStart").value);
     let duration = Number(document.getElementById("carTime").value);
 
-    if(!name || priceOrStart <= 0) {
-        alert("Informe o Nome e o Preço/Valor Inicial!");
-        return;
-    }
-
-    if(pubType === 'leilao' && duration <= 0) {
-        alert("Informe o tempo de duração do leilão em minutos!");
+    if(!name || start <= 0 || duration <= 0) {
+        alert("Preencha todos os campos do leilão corretamente!");
         return;
     }
 
@@ -941,15 +982,14 @@ function addPublication(event) {
 
     auctions.push({
         id: Date.now(),
-        isType: pubType, // 'leilao' ou 'loja'
         name: name,
         category: document.getElementById("carCategory").value.trim() || "Mainline",
         year: document.getElementById("carYear").value.trim() || "N/A",
         photo: finalPhoto,
         desc: document.getElementById("carDesc").value.trim() || "Sem descrição.",
-        price: priceOrStart,
-        startPrice: priceOrStart,
-        time: pubType === 'leilao' ? Date.now() + (duration * 60000) : 0,
+        price: start,
+        startPrice: start,
+        time: Date.now() + (duration * 60000),
         active: true,
         winner: null,
         bids: [],
@@ -968,8 +1008,133 @@ function addPublication(event) {
     document.getElementById("imgPreview").style.display = "none";
     base64ImageString = ""; 
     
-    alert(pubType === 'loja' ? "Miniatura cadastrada na Loja com sucesso!" : "Leilão ativado com sucesso!");
+    alert("Leilão ativado com sucesso!");
     load();
+}
+
+function publicarNaLoja(event) {
+    if(event) event.preventDefault();
+    if(!logged) { alert("Faça login!"); return; }
+
+    let name = document.getElementById("storeCarName").value.trim();
+    let price = Number(document.getElementById("storeCarPrice").value);
+
+    if(!name || price <= 0) {
+        alert("Informe o nome da miniatura e o preço de venda!");
+        return;
+    }
+
+    let finalPhoto = base64StoreImageString || "https://images.unsplash.com/photo-1594787318286-3d835c1d207f?q=80&w=250";
+
+    storeItems.push({
+        id: Date.now(),
+        seller: logged.user,
+        name: name,
+        category: document.getElementById("storeCarCategory").value.trim() || "Mainline",
+        year: document.getElementById("storeCarYear").value.trim() || "N/A",
+        photo: finalPhoto,
+        desc: document.getElementById("storeCarDesc").value.trim() || "Sem descrição.",
+        price: price,
+        active: true
+    });
+
+    saveToSupabase('loja_itens', storeItems);
+
+    document.getElementById("storeCarName").value = "";
+    document.getElementById("storeCarCategory").value = "";
+    document.getElementById("storeCarYear").value = "";
+    document.getElementById("storeCarPrice").value = "";
+    document.getElementById("storeCarPhotoFile").value = "";
+    document.getElementById("storeCarDesc").value = "";
+    document.getElementById("imgPreviewLoja").style.display = "none";
+    base64StoreImageString = "";
+
+    alert("Miniatura anunciada na loja com sucesso!");
+    renderStore();
+}
+
+function changeStoreFilter(filterType) {
+    currentStoreFilter = filterType;
+    document.querySelectorAll('#mainSectionLoja .btn-filter').forEach(btn => btn.classList.remove('active'));
+    if(filterType === 'all') document.getElementById('storeFilterAll').classList.add('active');
+    if(filterType === 'mine') document.getElementById('storeFilterMine').classList.add('active');
+    renderStore();
+}
+
+function renderStore() {
+    let box = document.getElementById("storeItemsGrid");
+    if(!box) return;
+    box.innerHTML = "";
+
+    let itensFiltrados = storeItems.filter(i => i.active);
+    if(currentStoreFilter === 'mine' && logged) {
+        itensFiltrados = itensFiltrados.filter(i => i.seller.toLowerCase() === logged.user.toLowerCase());
+    }
+
+    if(itensFiltrados.length === 0) {
+        box.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: #888; padding: 20px;">Nenhuma miniatura na loja no momento.</p>`;
+        return;
+    }
+
+    itensFiltrados.forEach(item => {
+        let isMyItem = logged && item.seller.toLowerCase() === logged.user.toLowerCase();
+        let isAdmin = logged && logged.type === 'admin';
+        
+        let deleteBtn = (isMyItem || isAdmin) ? `<button type="button" class="btn-danger" style="margin-top:8px; width:100%; padding:6px; font-size:12px;" onclick="removerItemLoja(${item.id})">🗑️ Remover Anúncio</button>` : '';
+        let comprarBtn = !isMyItem ? `<button type="button" style="width: 100%; background: #27ae60; margin-top: 10px;" onclick="comprarItemLoja(${item.id})">🛒 COMPRAR AGORA</button>` : `<p style="text-align:center; color:#ffcc00; font-size:12px; margin:10px 0 0 0;">Seu próprio anúncio</p>`;
+
+        let div = document.createElement("div");
+        div.className = "leilao-item";
+        div.innerHTML = `
+            <div>
+                <img src="${item.photo}">
+                <h2>${item.name}</h2>
+                <span class="badge">Vendedor: ${item.seller}</span>
+                <span class="badge" style="background:#222; color:#fff; border:1px solid #444;">${item.category} (${item.year})</span>
+                <p style="font-size: 13px; color: #bbb; margin: 5px 0;">${item.desc}</p>
+            </div>
+            <div>
+                <hr style="border-color: #222; margin: 10px 0;">
+                <div class="lance-atual">Preço: <span style="color: #00ff66;">R$ ${item.price.toFixed(2)}</span></div>
+                ${comprarBtn}
+                ${deleteBtn}
+            </div>
+        `;
+        box.appendChild(div);
+    });
+}
+
+function removerItemLoja(id) {
+    if(confirm("Deseja apagar este anúncio da loja?")) {
+        storeItems = storeItems.filter(x => x.id !== id);
+        saveToSupabase('loja_itens', storeItems);
+        renderStore();
+    }
+}
+
+function comprarItemLoja(id) {
+    if(!logged) { alert("Faça login!"); return; }
+
+    let item = storeItems.find(x => x.id == id);
+    if(!item || !item.active) { alert("Este item não está mais disponível."); return; }
+
+    if(confirm(`Deseja comprar "${item.name}" do vendedor ${item.seller} por R$ ${item.price.toFixed(2)}?`)) {
+        item.active = false;
+        
+        if (!garages[logged.user]) garages[logged.user] = [];
+        garages[logged.user].push({ 
+            idLeilao: item.id, 
+            name: item.name + ` (Loja de ${item.seller})`, 
+            photo: item.photo, 
+            price: item.price, 
+            pago: false 
+        });
+
+        saveToSupabase('garagens', garages);
+        saveToSupabase('loja_itens', storeItems);
+        alert("Compra realizada com sucesso! Vá em 'Minha Garagem' para enviar o comprovante PIX.");
+        switchMainTab('garagem');
+    }
 }
 
 function load() {
@@ -977,7 +1142,7 @@ function load() {
     if (!box) return;
     box.innerHTML = "";
 
-    let ativos = auctions.filter(a => a.active && a.isType !== 'loja');
+    let ativos = auctions.filter(a => a.active);
 
     if(ativos.length === 0) {
         box.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: #888; padding: 20px;">Não há leilões rolando no momento.</p>`;
@@ -1036,71 +1201,9 @@ function load() {
     populateSelects();
 }
 
-function renderStore() {
-    let storeBox = document.getElementById("storeItemsGrid");
-    if(!storeBox) return;
-    storeBox.innerHTML = "";
-
-    // Apenas miniaturas cadastradas pelo admin na loja que ainda estão ativas
-    let storeItems = auctions.filter(a => a.isType === 'loja' && a.active);
-
-    if(storeItems.length === 0) {
-        storeBox.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: #888; padding: 20px;">Nenhuma miniatura disponível na loja no momento.</p>`;
-        return;
-    }
-
-    storeItems.forEach(item => {
-        let div = document.createElement("div");
-        div.className = "leilao-item";
-        div.innerHTML = `
-            <div>
-                <img src="${item.photo}">
-                <h2>${item.name}</h2>
-                <span class="badge" style="background:#00ff66; color:#000;">🏪 Vitrine Oficial</span>
-                <span class="badge">${item.category} (${item.year})</span>
-                <p style="font-size: 13px; color: #bbb; margin: 5px 0;">${item.desc}</p>
-            </div>
-            <div>
-                <hr style="border-color: #222; margin: 10px 0;">
-                <div class="lance-atual" style="margin-bottom:15px;">Preço: <span style="color: #00ff66;">R$ ${item.price.toFixed(2)}</span></div>
-                <button type="button" style="width: 100%; background: #27ae60;" onclick="comprarItemLoja(event, ${item.id})">🛒 COMPRAR AGORA</button>
-            </div>
-        `;
-        storeBox.appendChild(div);
-    });
-}
-
-function comprarItemLoja(event, itemId) {
-    if(event) event.preventDefault();
-    if(!logged) { alert("Você precisa estar logado!"); return; }
-
-    let item = auctions.find(x => x.id == itemId);
-    if(!item || !item.active) { alert("Este item não está mais disponível."); return; }
-
-    if(confirm(`Deseja comprar "${item.name}" por R$ ${item.price.toFixed(2)}?`)) {
-        item.active = false;
-        item.winner = logged.user;
-        item.statusPagamento = 'pendente';
-
-        if (!garages[logged.user]) garages[logged.user] = [];
-        garages[logged.user].push({ 
-            idLeilao: item.id, 
-            name: item.name, 
-            photo: item.photo, 
-            price: item.price, 
-            pago: false 
-        });
-
-        saveToSupabase('garagens', garages);
-        saveToSupabase('leiloes', auctions);
-        alert("Compra realizada com sucesso! Vá em 'Minha Garagem' para enviar o comprovante PIX.");
-        switchMainTab('garagem');
-    }
-}
-
 function changeAdminFilter(filterType) {
     currentAdminFilter = filterType;
-    document.querySelectorAll('.btn-filter').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('#mainSectionAdmin .btn-filter').forEach(btn => btn.classList.remove('active'));
     if(filterType === 'all') document.getElementById('filterAll').classList.add('active');
     if(filterType === 'active') document.getElementById('filterActive').classList.add('active');
     if(filterType === 'closed') document.getElementById('filterClosed').classList.add('active');
@@ -1110,7 +1213,6 @@ function changeAdminFilter(filterType) {
 function renderAdminTables() {
     if (!logged || logged.type !== "admin") return;
     
-    // ABA LEILÃO & LOJA - TABELA MONITORAMENTO
     let tbodyLeilao = document.getElementById("adminTableBody");
     tbodyLeilao.innerHTML = "";
 
@@ -1119,10 +1221,9 @@ function renderAdminTables() {
     if (currentAdminFilter === "closed") filteredAuctions = auctions.filter(a => !a.active);
 
     if(filteredAuctions.length === 0) {
-        tbodyLeilao.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #888;">Nenhum item cadastrado.</td></tr>`;
+        tbodyLeilao.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888;">Nenhum leilão cadastrado.</td></tr>`;
     } else {
         filteredAuctions.forEach(a => {
-            let tipoBadge = a.isType === 'loja' ? `<span style="color:#00ff66; font-weight:bold;">🏪 Loja</span>` : `<span style="color:#ffcc00; font-weight:bold;">🔨 Leilão</span>`;
             let statusText = a.active ? `<span style="color:#00ff66; font-weight:bold;">🔥 Ativo</span>` : `<span style="color:#ff3333;">🛑 Encerrado</span>`;
             let pagStatus = "N/A";
             
@@ -1137,14 +1238,13 @@ function renderAdminTables() {
             }
 
             let actionButtons = `<button type="button" class="btn-danger" style="padding: 6px 10px; font-size:12px; margin-right:5px;" onclick="deleteAuction(event, ${a.id})">Deletar</button>`;
-            if (a.active && a.isType !== 'loja') {
+            if (a.active) {
                 actionButtons += `<button type="button" class="btn-secondary" style="padding: 6px 10px; font-size:12px; background:#d35400;" onclick="forceCloseAuction(event, ${a.id})">Encerrar</button>`;
             }
 
             tbodyLeilao.innerHTML += `
                 <tr>
                     <td><strong>${a.name}</strong></td>
-                    <td>${tipoBadge}</td>
                     <td>R$ ${a.price.toFixed(2)}</td>
                     <td>${statusText}</td>
                     <td>${a.winner ? '🏆 ' + a.winner + '<br>' + pagStatus : 'Nenhum'}</td>
@@ -1154,7 +1254,6 @@ function renderAdminTables() {
         });
     }
 
-    // ABA FINANCEIRO - METRICA & TABELA PIX
     let totalFaturado = auctions.filter(a => !a.active && a.winner).reduce((sum, a) => sum + a.price, 0);
     document.getElementById("adminMetricTotal").innerText = "R$ " + totalFaturado.toFixed(2);
 
@@ -1163,7 +1262,7 @@ function renderAdminTables() {
     
     let fechadosComComprador = auctions.filter(a => !a.active && a.winner);
     if(fechadosComComprador.length === 0) {
-        tbodyFinanceiro.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888;">Nenhuma venda finalizada ainda.</td></tr>`;
+        tbodyFinanceiro.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888;">Nenhuma venda finalizada.</td></tr>`;
     } else {
         fechadosComComprador.forEach(a => {
             let acaoPix = "";
@@ -1172,7 +1271,7 @@ function renderAdminTables() {
             } else if (a.statusPagamento === 'analise') {
                 acaoPix = `<button type="button" style="background:#d35400; padding:6px 12px; font-size:12px;" onclick="verComprovante(${a.id})">🔍 Ver Comprovante</button>`;
             } else {
-                acaoPix = `<span style="color: #f39c12;">Aguardando Envio do Comprovante</span>`;
+                acaoPix = `<span style="color: #f39c12;">Aguardando Comprovante</span>`;
             }
 
             tbodyFinanceiro.innerHTML += `
@@ -1186,7 +1285,6 @@ function renderAdminTables() {
         });
     }
 
-    // ABA USUÁRIOS & SENHAS - TABELA DE USUÁRIOS
     let tbodyUsers = document.getElementById("adminUsersTableBody");
     tbodyUsers.innerHTML = "";
     users.forEach(u => {
@@ -1211,7 +1309,7 @@ function verComprovante(auctionId) {
     let win = window.open("");
     win.document.write(`
         <body style="background:#141414; color:#fff; text-align:center; font-family:sans-serif; padding:20px;">
-            <h2>Comprovante de Pagamento - ${a.winner}</h2>
+            <h2>Comprovante - ${a.winner}</h2>
             <p>Item: <strong>${a.name}</strong> | Valor: <strong>R$ ${a.price.toFixed(2)}</strong></p>
             <img src="${a.comprovante}" style="max-width:100%; max-height:70vh; border-radius:8px; border:2px solid #ffcc00; margin-bottom:20px;"><br>
             <button onclick="window.opener.aprovarPagamento(${a.id}); window.close();" style="background:#27ae60; color:#fff; padding:12px 25px; border:none; font-size:16px; border-radius:6px; cursor:pointer; font-weight:bold;">✅ Aprovar Pagamento</button>
@@ -1231,7 +1329,7 @@ async function aprovarPagamento(auctionId) {
         }
 
         await saveToSupabase('leiloes', auctions);
-        alert("Pagamento aprovado com sucesso!");
+        alert("Pagamento aprovado!");
         load();
     }
 }
@@ -1244,7 +1342,7 @@ function saveSniper(event, id) {
     let teto = Number(document.getElementById("sniper" + id).value);
 
     if (teto <= auction.price) {
-        alert("O teto do sniper precisa ser maior que o preço atual do leilão!");
+        alert("O teto do sniper precisa ser maior que o preço atual!");
         return;
     }
 
@@ -1252,14 +1350,14 @@ function saveSniper(event, id) {
     auction.snipers[logged.user] = teto;
 
     saveToSupabase('leiloes', auctions);
-    alert(`🎯 Modo Sniper ativado! O sistema vai cobrir automaticamente lances até R$ ${teto.toFixed(2)} para você.`);
+    alert(`🎯 Modo Sniper ativado até R$ ${teto.toFixed(2)}!`);
     load();
 }
 
 function checkSnipers() {
     let alterou = false;
     auctions.forEach(a => {
-        if (!a.active || a.isType === 'loja' || !a.snipers) return;
+        if (!a.active || !a.snipers) return;
         
         if (a.bids.length > 0) {
             let liderAtual = a.bids[a.bids.length - 1].user;
@@ -1291,22 +1389,22 @@ function checkSnipers() {
 
 function bid(event, id) {
     if(event) event.preventDefault();
-    if(!logged) { alert("Você precisa estar logado!"); return; }
+    if(!logged) { alert("Faça login!"); return; }
     
     let auction = auctions.find(x => x.id == id);
     let value = Number(document.getElementById("bid" + id).value);
 
     if (value <= auction.price) {
-        alert("Seu lance precisa ser maior que o lance atual!");
+        alert("Seu lance precisa ser maior que o atual!");
         return;
     }
 
     if (auction.bids.length > 0 && auction.bids[auction.bids.length - 1].user.toLowerCase() === logged.user.toLowerCase()) {
-        alert("Você já é o líder atual deste leilão!");
+        alert("Você já é o líder!");
         return;
     }
 
-    if (confirm(`Confirmar lance personalizado de R$ ${value.toFixed(2)} em "${auction.name}"?`)) {
+    if (confirm(`Confirmar lance de R$ ${value.toFixed(2)}?`)) {
         executeBid(auction, value);
         document.getElementById("bid" + id).value = ""; 
     }
@@ -1314,17 +1412,17 @@ function bid(event, id) {
 
 function fastBid(event, id, incremento) {
     if(event) event.preventDefault();
-    if(!logged) { alert("Você precisa estar logado!"); return; }
+    if(!logged) { alert("Faça login!"); return; }
 
     let auction = auctions.find(x => x.id == id);
     let value = auction.price + incremento;
 
     if (auction.bids.length > 0 && auction.bids[auction.bids.length - 1].user.toLowerCase() === logged.user.toLowerCase()) {
-        alert("Você já é o líder atual deste leilão!");
+        alert("Você já é o líder!");
         return;
     }
 
-    if (confirm(`Confirmar lance rápido de +R$ ${incremento} (Total: R$ ${value.toFixed(2)}) em "${auction.name}"?`)) {
+    if (confirm(`Confirmar +R$ ${incremento} (R$ ${value.toFixed(2)})?`)) {
         executeBid(auction, value);
     }
 }
@@ -1345,7 +1443,7 @@ function executeBid(auction, value) {
 
 function forceCloseAuction(event, id) {
     if(event) event.preventDefault();
-    if (confirm("Tem certeza que deseja encerrar este leilão imediatamente?")) {
+    if (confirm("Encerrar leilão agora?")) {
         let auction = auctions.find(x => x.id == id);
         if (auction) {
             auction.time = Date.now(); 
@@ -1381,7 +1479,7 @@ function processarEncerramento(a) {
 setInterval(() => {
     let mudou = false;
     auctions.forEach(a => {
-        if (!a.active || a.isType === 'loja') return;
+        if (!a.active) return;
         let diff = a.time - Date.now();
         let timer = document.getElementById("timer" + a.id);
 
@@ -1415,7 +1513,7 @@ function showGarage() {
     box.innerHTML = "";
 
     if(items.length === 0) {
-        box.innerHTML = `<p style="grid-column: 1/-1; color: #888; text-align: center;">Sua garagem ainda está vazia. Arremate um leilão ou compre na loja!</p>`;
+        box.innerHTML = `<p style="grid-column: 1/-1; color: #888; text-align: center;">Sua garagem está vazia.</p>`;
         return;
     }
 
@@ -1432,8 +1530,8 @@ function showGarage() {
             statusHtml = `
                 <div class="modal-pagamento">
                     <p style="margin:0 0 5px 0; font-size:12px; color:#ffcc00; font-weight:bold;">💳 PAGAR VIA PIX</p>
-                    <p style="margin:0 0 8px 0; font-size:12px; color:#bbb;">Chave: <span style="color:#fff; user-select:all;">${configData.pixKey || 'Não cadastrada pelo Admin'}</span></p>
-                    <label style="font-size:11px; color:#aaa; display:block; margin-bottom:3px;">Enviar Comprovante (Print):</label>
+                    <p style="margin:0 0 8px 0; font-size:12px; color:#bbb;">Chave: <span style="color:#fff; user-select:all;">${configData.pixKey || 'Não cadastrada'}</span></p>
+                    <label style="font-size:11px; color:#aaa; display:block; margin-bottom:3px;">Enviar Comprovante:</label>
                     <input type="file" accept="image/*" id="comprovanteFile${x.idLeilao}" style="font-size:11px; padding:4px; margin-bottom:5px;">
                     <button type="button" style="background:#27ae60; width:100%; padding:6px; font-size:12px;" onclick="enviarComprovante(${x.idLeilao})">📤 Enviar Comprovante</button>
                 </div>
@@ -1462,21 +1560,17 @@ function enviarComprovante(auctionId) {
     let fileInput = document.getElementById("comprovanteFile" + auctionId);
     let file = fileInput.files[0];
 
-    if(!file) {
-        alert("Selecione a imagem do comprovante antes de enviar!");
-        return;
-    }
+    if(!file) { alert("Selecione o arquivo do comprovante!"); return; }
 
     const reader = new FileReader();
     reader.onload = function(e) {
         let base64Comp = e.target.result;
-        
         let a = auctions.find(x => x.id == auctionId);
         if (a) {
             a.comprovante = base64Comp;
             a.statusPagamento = 'analise';
             saveToSupabase('leiloes', auctions);
-            alert("Comprovante enviado com sucesso! O administrador irá conferir em breve.");
+            alert("Comprovante enviado!");
             load();
         }
     }
@@ -1485,7 +1579,7 @@ function enviarComprovante(auctionId) {
 
 function deleteAuction(event, id) {
     if(event) event.preventDefault();
-    if (confirm("Deseja remover esse item?")) {
+    if (confirm("Remover leilão?")) {
         auctions = auctions.filter(x => x.id != id);
         saveToSupabase('leiloes', auctions);
         load();
