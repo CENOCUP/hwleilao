@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HW Auction - Leilão Hot Wheels Pro</title>
+    <!-- Script do Supabase para rodar direto no navegador -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        body {
+            margin: 0;
+            background: #141414;
+            color: #eee;
+        }
+        header {
+            background: #e10600;
+            padding: 25px 20px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(225, 6, 0, 0.3);
+        }
+        header h1 {
+            margin: 0;
+            font-size: 32px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            color: #fff;
+        }
+        header small {
+            font-size: 14px;
+            color: #ffcccc;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .container {
+            width: 95%;
+            max-width: 1200px;
+            margin: 20px auto;
+        }
+        .card {
+            background: #222;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            border: 1px solid #333;
+        }
+        h2 {
+            color: #ffcc00;
+            margin-top: 0;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        h3 {
+            color: #fff;
+            margin-top: 20px;
+        }
+        button {
+            background: #e10600;
+            border: none;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #ff2b20;
+            transform: translateY(-1px);
+        }
+        .btn-secondary {
+            background: #444;
+        }
+        .btn-secondary:hover {
+            background: #555;
+        }
+        .btn-danger {
+            background: #c0392b;
+        }
+        .btn-danger:hover {
+            background: #e74c3c;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0 16px 0;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background: #2a2a2a;
+            color: white;
+            font-size: 14px;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: #ffcc00;
+            outline: none;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+        }
+        .leilao-item {
+            background: #1b1b1b;
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .leilao-item img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            border-radius: 6px;
+            background: #222;
+        }
+        .badge {
+            background: #ffcc00;
+            color: black;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-block;
+            margin: 8px 0;
+        }
+        .timer {
+            color: #00ff66;
+            font-size: 20px;
+            font-weight: bold;
+            background: rgba(0, 255, 102, 0.1);
+            padding: 8px;
+            text-align: center;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .lance-atual {
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+            margin: 5px 0;
+        }
+        .historico-lances {
+            background: #222;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            max-height: 100px;
+            overflow-y: auto;
+            margin-top: 10px;
+            border-left: 3px solid #e10600;
+        }
+        .hidden {
+            display: none !important;
+        }
+        
+        /* TABELA ADMIN */
+        .admin-table-container {
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+        th {
+            background: #1a1a1a;
+            color: #ffcc00;
+        }
+        tr:hover {
+            background: #282828;
+        }
+
+        /* METRICAS DA GARAGEM */
+        .garagem-header {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .metrica-card {
+            background: #1b1b1b;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ffcc00;
+            text-align: center;
+        }
+        .metrica-card h4 { margin: 0; color: #aaa; font-size: 14px; }
+        .metrica-card p { margin: 5px 0 0 0; font-size: 22px; font-weight: bold; color: #fff; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🏎️ HW AUCTION</h1>
+    <small>Painel de Leilões & Colecionáveis</small>
+</header>
+
+<div class="container">
+
+    <!-- LOGIN -->
+    <div id="loginPage" class="card">
+        <h2>🔒 Acesso ao Sistema</h2>
+        <label>Usuário</label>
+        <input id="loginUser" placeholder="Ex: admin ou seu nome">
+        <label>Senha</label>
+        <input id="loginPass" type="password" placeholder="Senha">
+        <button type="button" style="width: 100%;" onclick="login(event)">Entrar no Sistema</button>
+
+        <h3 style="text-align: center; margin-top: 25px; color: #aaa;">Primeiro acesso? Cadastre-se abaixo</h3>
+        <label>Criar Novo Usuário</label>
+        <input id="newUser" placeholder="Digite o nome de usuário desejado">
+        <button type="button" class="btn-secondary" style="width: 100%;" onclick="createUser(event)">Criar Conta (Senha Padrão: 1234)</button>
+    </div>
+
+    <!-- SISTEMA -->
+    <div id="system" class="hidden">
+        
+        <!-- HEADER USUARIO -->
+        <div class="card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+            <h2 style="border: none; padding: 0; margin: 0;">👤 Olá, <span id="currentUser" style="color: #fff;"></span>!</h2>
+            <button type="button" class="btn-secondary" onclick="logout(event)">🚪 Sair do Sistema</button>
+        </div>
+
+        <!-- 🛠 PAINEL ADMINISTRADOR -->
+        <div id="adminPanel" class="hidden card" style="border: 1px solid #ffcc00;">
+            <h2>🛠 Painel do Administrador</h2>
+            
+            <!-- ALTERAR SENHA DOS USUÁRIOS -->
+            <h3>🔑 Gerenciar Senhas dos Usuários</h3>
+            <div class="form-grid" style="align-items: flex-end;">
+                <div>
+                    <label>Selecionar Usuário</label>
+                    <select id="changePassUser"></select>
+                </div>
+                <div>
+                    <label>Nova Senha</label>
+                    <input id="changePassNew" type="password" placeholder="Digite a nova senha">
+                </div>
+                <button type="button" style="background: #d35400; margin-bottom: 16px;" onclick="changeUserPassword(event)">Atualizar Senha</button>
+            </div>
+
+            <hr style="border-color: #333; margin: 20px 0;">
+
+            <h3>➕ Cadastrar Nova Miniatura no Leilão</h3>
+            <div class="form-grid">
+                <div>
+                    <label>Nome da Hot Wheels</label>
+                    <input id="carName" placeholder="Ex: '67 Camaro">
+                </div>
+                <div>
+                    <label>Categoria / Série</label>
+                    <input id="carCategory" placeholder="Ex: Super Treasure Hunt">
+                </div>
+                <div>
+                    <label>Ano de Lançamento</label>
+                    <input id="carYear" placeholder="Ex: 2024">
+                </div>
+            </div>
+            
+            <label>URL da Imagem do Carro</label>
+            <input id="carPhoto" placeholder="Link da foto (ou deixe em branco para imagem padrão)">
+            
+            <label>Descrição do Item / Estado da Cartela</label>
+            <textarea id="carDesc" placeholder="Detalhes sobre a miniatura..."></textarea>
+            
+            <div class="form-grid">
+                <div>
+                    <label>Lance Inicial (R$)</label>
+                    <input id="carStart" type="number" placeholder="0.00">
+                </div>
+                <div>
+                    <label>Duração do Leilão (Minutos)</label>
+                    <input id="carTime" type="number" placeholder="Ex: 10">
+                </div>
+            </div>
+            
+            <button type="button" style="background: #27ae60;" onclick="addAuction(event)">🚀 Ativar e Publicar Leilão</button>
+
+            <hr style="border-color: #333; margin: 30px 0;">
+
+            <h3>📊 Monitoramento Geral de Itens (Admin)</h3>
+            <div class="admin-table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Miniatura</th>
+                            <th>Lance Inicial</th>
+                            <th>Lance Atual</th>
+                            <th>Status</th>
+                            <th>Vencedor</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- LEILOES ATIVOS -->
+        <div class="card">
+            <h2>🔥 Leilões Correndo Agora</h2>
+            <div id="auctions" class="grid"></div>
+        </div>
+
+        <!-- 📦 AREA DO ARREMATADOR -->
+        <div class="card" style="border-left: 5px solid #00ff66;">
+            <h2>📦 Minha Garagem (Itens Arrematados)</h2>
+            
+            <div class="garagem-header">
+                <div class="metrica-card">
+                    <h4>Total de Peças</h4>
+                    <p id="metricCount">0</p>
+                </div>
+                <div class="metrica-card" style="border-left-color: #00ff66;">
+                    <h4>Total Investido</h4>
+                    <p id="metricTotal">R$ 0,00</p>
+                </div>
+            </div>
+
+            <div id="garage" class="grid"></div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+// ==========================================
+// CONFIGURAÇÃO DO SEU SUPABASE CONFIGURADO
+// ==========================================
+const SUPABASE_URL = "https://hzstdggxugkfialqtsnv.supabase.co";
+const SUPABASE_KEY = "sb_publishable_8mVMLUB5VzUmae6jDlTtkA_g5ygcnT8"; 
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let users = [{ user: "admin", pass: "1234", type: "admin" }];
+let auctions = [];
+let garages = {};
+let logged = null;
+
+// Carregar dados iniciais do banco
+async function loadFromSupabase() {
+    // Buscar Usuários
+    let { data: resUsers } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'usuarios').single();
+    if (resUsers) users = JSON.parse(resUsers.conteudo);
+
+    // Buscar Leilões
+    let { data: resAuctions } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'leiloes').single();
+    if (resAuctions) auctions = JSON.parse(resAuctions.conteudo);
+
+    // Buscar Garagens
+    let { data: resGarages } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'garagens').single();
+    if (resGarages) garages = JSON.parse(resGarages.conteudo);
+
+    load();
+    populateUserSelect();
+}
+
+// Salvar dados no banco
+async function saveToSupabase(id, obj) {
+    await supabaseClient.from('leilao_dados').upsert({ id_leilao: id, conteudo: JSON.stringify(obj) });
+}
+
+// Iniciar escuta em Tempo Real do Supabase
+function initRealtime() {
+    supabaseClient.channel('custom-all-channel')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'leilao_dados' }, () => {
+        loadFromSupabase();
+    })
+    .subscribe();
+}
+
+function createUser(event) {
+    if(event) event.preventDefault();
+    let u = document.getElementById("newUser").value.trim();
+    if (!u) { alert("Digite um nome de usuário!"); return; }
+
+    if (users.find(x => x.user.toLowerCase() === u.toLowerCase())) {
+        alert("Este usuário já está cadastrado!");
+        return;
+    }
+
+    users.push({ user: u, pass: "1234", type: "user" });
+    saveToSupabase('usuarios', users);
+    alert("Usuário '" + u + "' criado! Senha: 1234");
+    document.getElementById("newUser").value = "";
+    loadFromSupabase();
+}
+
+// Função do Admin para Alterar Senha de qualquer usuário
+function changeUserPassword(event) {
+    if(event) event.preventDefault();
+    let selectedUser = document.getElementById("changePassUser").value;
+    let newPassword = document.getElementById("changePassNew").value.trim();
+
+    if(!newPassword) {
+        alert("Por favor, digite a nova senha!");
+        return;
+    }
+
+    let userIndex = users.findIndex(x => x.user === selectedUser);
+    if(userIndex !== -1) {
+        users[userIndex].pass = newPassword;
+        saveToSupabase('usuarios', users);
+        alert("Senha de " + selectedUser + " alterada com sucesso!");
+        document.getElementById("changePassNew").value = "";
+    }
+}
+
+// Alimenta o campo select com os usuários cadastrados
+function populateUserSelect() {
+    let select = document.getElementById("changePassUser");
+    if(!select) return;
+    select.innerHTML = "";
+    users.forEach(u => {
+        select.innerHTML += `<option value="${u.user}">${u.user} (${u.type})</option>`;
+    });
+}
+
+function login(event) {
+    if(event) event.preventDefault();
+    let u = document.getElementById("loginUser").value.trim();
+    let p = document.getElementById("loginPass").value;
+
+    let found = users.find(x => x.user == u && x.pass == p);
+
+    if (found) {
+        logged = found;
+        document.getElementById("loginPage").classList.add("hidden");
+        document.getElementById("system").classList.remove("hidden");
+        document.getElementById("currentUser").innerHTML = u;
+
+        if (found.type == "admin") {
+            document.getElementById("adminPanel").classList.remove("hidden");
+            populateUserSelect();
+        } else {
+            document.getElementById("adminPanel").classList.add("hidden");
+        }
+        load();
+    } else {
+        alert("Usuário ou senha incorretos.");
+    }
+}
+
+function logout(event) {
+    if(event) event.preventDefault();
+    logged = null;
+    document.getElementById("system").classList.add("hidden");
+    document.getElementById("loginPage").classList.remove("hidden");
+}
+
+function addAuction(event) {
+    if(event) event.preventDefault();
+    let name = document.getElementById("carName").value.trim();
+    let startPrice = Number(document.getElementById("carStart").value);
+    let duration = Number(document.getElementById("carTime").value);
+
+    if(!name || startPrice <= 0 || duration <= 0) {
+        alert("Informe o Nome, Lance Inicial e o Tempo!");
+        return;
+    }
+
+    let photoUrl = document.getElementById("carPhoto").value.trim() || "https://images.unsplash.com/photo-1594787318286-3d835c1d207f?q=80&w=250";
+
+    auctions.push({
+        id: Date.now(),
+        name: name,
+        category: document.getElementById("carCategory").value.trim() || "Mainline",
+        year: document.getElementById("carYear").value.trim() || "N/A",
+        photo: photoUrl,
+        desc: document.getElementById("carDesc").value.trim() || "Sem descrição.",
+        price: startPrice,
+        startPrice: startPrice,
+        time: Date.now() + (duration * 60000),
+        active: true,
+        winner: null,
+        bids: []
+    });
+
+    saveToSupabase('leiloes', auctions);
+
+    document.getElementById("carName").value = "";
+    document.getElementById("carCategory").value = "";
+    document.getElementById("carYear").value = "";
+    document.getElementById("carPhoto").value = "";
+    document.getElementById("carDesc").value = "";
+    document.getElementById("carStart").value = "";
+    document.getElementById("carTime").value = "";
+    load();
+}
+
+function load() {
+    let box = document.getElementById("auctions");
+    if (!box) return;
+    box.innerHTML = "";
+
+    let ativos = auctions.filter(a => a.active);
+
+    if(ativos.length === 0) {
+        box.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: #888; padding: 20px;">Não há leilões rolando no momento.</p>`;
+    }
+
+    ativos.forEach(a => {
+        let div = document.createElement("div");
+        div.className = "leilao-item";
+        div.innerHTML = `
+            <div>
+                <img src="${a.photo}">
+                <h2>${a.name}</h2>
+                <span class="badge">${a.category} (${a.year})</span>
+                <p style="font-size: 13px; color: #bbb; margin: 5px 0;">${a.desc}</p>
+            </div>
+            <div>
+                <hr style="border-color: #222; margin: 10px 0;">
+                <div class="lance-atual">Lance Atual: <span style="color: #00ff66;">R$ ${a.price.toFixed(2)}</span></div>
+                <div class="timer" id="timer${a.id}">Calculando...</div>
+                <input id="bid${a.id}" type="number" step="0.01" placeholder="Valor maior que R$ ${a.price.toFixed(2)}">
+                <button type="button" style="width: 100%;" onclick="bid(event, ${a.id})">🔨 DAR LANCE</button>
+                <div class="historico-lances">
+                    <strong>Histórico recente:</strong>
+                    ${a.bids.length === 0 ? '<p style="margin:5px 0; color:#777;">Nenhum lance.</p>' : 
+                      a.bids.slice(-3).reverse().map(b => `<p style="margin:3px 0;">• ${b.user}: R$ ${b.value.toFixed(2)}</p>`).join("")}
+                </div>
+            </div>
+        `;
+        box.appendChild(div);
+    });
+
+    renderAdminTable();
+    showGarage();
+}
+
+function renderAdminTable() {
+    if (!logged || logged.type !== "admin") return;
+    let tbody = document.getElementById("adminTableBody");
+    tbody.innerHTML = "";
+
+    auctions.forEach(a => {
+        let statusText = a.active ? `<span style="color:#00ff66; font-weight:bold;">🔥 Ativo</span>` : `<span style="color:#ff3333;">🛑 Encerrado</span>`;
+        tbody.innerHTML += `
+            <tr>
+                <td><strong>${a.name}</strong></td>
+                <td>R$ ${a.startPrice.toFixed(2)}</td>
+                <td>R$ ${a.price.toFixed(2)}</td>
+                <td>${statusText}</td>
+                <td>${a.winner ? '🏆 ' + a.winner : 'Nenhum'}</td>
+                <td><button type="button" class="btn-danger" style="padding: 6px 10px; font-size:12px;" onclick="deleteAuction(event, ${a.id})">Deletar</button></td>
+            </tr>
+        `;
+    });
+}
+
+function bid(event, id) {
+    if(event) event.preventDefault();
+    let auction = auctions.find(x => x.id == id);
+    let value = Number(document.getElementById("bid" + id).value);
+
+    if (value <= auction.price) {
+        alert("Seu lance precisa ser maior!");
+        return;
+    }
+
+    auction.price = value;
+    auction.bids.push({ user: logged.user, value: value });
+
+    saveToSupabase('leiloes', auctions);
+    load();
+}
+
+setInterval(() => {
+    let mudou = false;
+    auctions.forEach(a => {
+        if (!a.active) return;
+        let diff = a.time - Date.now();
+        let timer = document.getElementById("timer" + a.id);
+
+        if (diff <= 0) {
+            a.active = false;
+            if (a.bids.length > 0) {
+                let winner = a.bids[a.bids.length - 1];
+                a.winner = winner.user;
+                if (!garages[winner.user]) garages[winner.user] = [];
+                zipgarages[winner.user].push({ name: a.name, photo: a.photo, price: a.price });
+                saveToSupabase('garagens', garages);
+            }
+            saveToSupabase('leiloes', auctions);
+            mudou = true;
+        } else if (timer) {
+            let sec = Math.floor(diff / 1000);
+            let min = Math.floor(sec / 60);
+            timer.innerHTML = "⏰ " + min + ":" + String(sec % 60).padStart(2, "0");
+        }
+    });
+    if(mudou) load();
+}, 1000);
+
+function showGarage() {
+    let box = document.getElementById("garage");
+    if (!box || !logged) return;
+
+    let items = garages[logged.user] || [];
+    let totalGasto = items.reduce((soma, item) => soma + item.price, 0);
+    
+    document.getElementById("metricCount").innerText = items.length;
+    document.getElementById("metricTotal").innerText = "R$ " + totalGasto.toFixed(2);
+    box.innerHTML = "";
+
+    items.forEach(x => {
+        let div = document.createElement("div");
+        div.className = "leilao-item";
+        div.style.background = "#152a1c";
+        div.style.borderColor = "#00ff66";
+        div.innerHTML = `
+            <img src="${x.photo}">
+            <h3 style="margin: 10px 0 5px 0;">🏆 ${x.name}</h3>
+            <p style="margin: 0; font-size:14px; color:#00ff66; font-weight:bold;">Arrematado por: R$ ${x.price.toFixed(2)}</p>
+        `;
+        box.appendChild(div);
+    });
+}
+
+function deleteAuction(event, id) {
+    if(event) event.preventDefault();
+    if (confirm("Deseja remover esse leilão?")) {
+        auctions = auctions.filter(x => x.id != id);
+        saveToSupabase('leiloes', auctions);
+        load();
+    }
+}
+
+// Inicialização
+loadFromSupabase();
+initRealtime();
+</script>
+</body>
+</html>
