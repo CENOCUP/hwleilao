@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HW Auction - Leilão Hot Wheels Pro</title>
+    <title>HW Auction - Leilão Hot Wheels Ultra</title>
     <!-- Script do Supabase para rodar direto no navegador -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -89,6 +89,16 @@
         .btn-danger:hover {
             background: #e74c3c;
         }
+        .btn-filter {
+            padding: 6px 12px;
+            font-size: 12px;
+            background: #333;
+            margin-right: 5px;
+        }
+        .btn-filter.active {
+            background: #ffcc00;
+            color: #000;
+        }
         input, select, textarea {
             width: 100%;
             padding: 12px;
@@ -153,6 +163,16 @@
             text-align: center;
             border-radius: 6px;
             margin: 10px 0;
+            transition: all 0.3s;
+        }
+        .timer.urgent {
+            color: #ff3333;
+            background: rgba(255, 51, 51, 0.2);
+            animation: pulse 1s infinite alternate;
+        }
+        @keyframes pulse {
+            from { opacity: 0.7; }
+            to { opacity: 1; }
         }
         .lance-atual {
             font-size: 18px;
@@ -217,7 +237,7 @@
 
         .garagem-header {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
             gap: 15px;
             margin-bottom: 20px;
         }
@@ -283,6 +303,14 @@
         <div id="adminPanel" class="hidden card" style="border: 1px solid #ffcc00;">
             <h2>🛠 Painel do Administrador</h2>
             
+            <!-- MÉTRICAS DO ADMIN -->
+            <div class="garagem-header">
+                <div class="metrica-card" style="border-left-color: #27ae60;">
+                    <h4>Total Faturado (Encerrados)</h4>
+                    <p id="adminMetricTotal" style="color: #00ff66;">R$ 0,00</p>
+                </div>
+            </div>
+
             <!-- GERENCIAR USUÁRIOS -->
             <h3>🔑 Gerenciar Senhas dos Usuários</h3>
             <div class="form-grid" style="align-items: flex-end;">
@@ -341,6 +369,11 @@
             <hr style="border-color: #333; margin: 30px 0;">
 
             <h3>📊 Monitoramento Geral de Itens (Admin)</h3>
+            <div style="margin-bottom: 10px;">
+                <button type="button" class="btn-secondary btn-filter active" id="filterAll" onclick="changeAdminFilter('all')">Todos</button>
+                <button type="button" class="btn-secondary btn-filter" id="filterActive" onclick="changeAdminFilter('active')">Ativos</button>
+                <button type="button" class="btn-secondary btn-filter" id="filterClosed" onclick="changeAdminFilter('closed')">Encerrados</button>
+            </div>
             <div class="admin-table-container">
                 <table>
                     <thead>
@@ -396,6 +429,7 @@ let auctions = [];
 let garages = {};
 let logged = null;
 let base64ImageString = ""; 
+let currentAdminFilter = "all"; // Filtro padrão da tabela do admin
 
 async function loadFromSupabase() {
     let { data: resUsers } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'usuarios').single();
@@ -502,11 +536,8 @@ function populateUserSelect() {
     });
 }
 
-// 🔑 FUNÇÃO DE LOGIN ATUALIZADA COM PROTEÇÃO CONTRA ESPAÇOS E ATUALIZAÇÃO FORÇADA
 function login(event) {
     if(event) event.preventDefault();
-    
-    // .trim() remove espaços invisíveis que o teclado do celular põe no início ou fim
     let u = document.getElementById("loginUser").value.trim().toLowerCase();
     let p = document.getElementById("loginPass").value.trim();
 
@@ -654,13 +685,38 @@ function load() {
     showGarage();
 }
 
+function changeAdminFilter(filterType) {
+    currentAdminFilter = filterType;
+    document.querySelectorAll('.btn-filter').forEach(btn => btn.classList.remove('active'));
+    if(filterType === 'all') document.getElementById('filterAll').classList.add('active');
+    if(filterType === 'active') document.getElementById('filterActive').classList.add('active');
+    if(filterType === 'closed') document.getElementById('filterClosed').classList.add('active');
+    renderAdminTable();
+}
+
 function renderAdminTable() {
     if (!logged || logged.type !== "admin") return;
     let tbody = document.getElementById("adminTableBody");
     tbody.innerHTML = "";
 
-    auctions.forEach(a => {
+    // Calcular faturamento total de itens encerrados
+    let totalFaturado = auctions.filter(a => !a.active && a.winner).reduce((sum, a) => sum + a.price, 0);
+    document.getElementById("adminMetricTotal").innerText = "R$ " + totalFaturado.toFixed(2);
+
+    // Filtragem da tabela
+    let filteredAuctions = auctions;
+    if (currentAdminFilter === "active") filteredAuctions = auctions.filter(a => a.active);
+    if (currentAdminFilter === "closed") filteredAuctions = auctions.filter(a => !a.active);
+
+    filteredAuctions.forEach(a => {
         let statusText = a.active ? `<span style="color:#00ff66; font-weight:bold;">🔥 Ativo</span>` : `<span style="color:#ff3333;">🛑 Encerrado</span>`;
+        let actionButtons = `<button type="button" class="btn-danger" style="padding: 6px 10px; font-size:12px; margin-right:5px;" onclick="deleteAuction(event, ${a.id})">Deletar</button>`;
+        
+        // Adiciona botão para encerrar na hora se estiver ativo
+        if (a.active) {
+            actionButtons += `<button type="button" class="btn-secondary" style="padding: 6px 10px; font-size:12px; background:#d35400;" onclick="forceCloseAuction(event, ${a.id})">Encerrar</button>`;
+        }
+
         tbody.innerHTML += `
             <tr>
                 <td><strong>${a.name}</strong></td>
@@ -668,7 +724,7 @@ function renderAdminTable() {
                 <td>R$ ${a.price.toFixed(2)}</td>
                 <td>${statusText}</td>
                 <td>${a.winner ? '🏆 ' + a.winner : 'Nenhum'}</td>
-                <td><button type="button" class="btn-danger" style="padding: 6px 10px; font-size:12px;" onclick="deleteAuction(event, ${a.id})">Deletar</button></td>
+                <td>${actionButtons}</td>
             </tr>
         `;
     });
@@ -686,6 +742,12 @@ function bid(event, id) {
         return;
     }
 
+    // 🔒 PROTEÇÃO: Evita dar lance em cima de si mesmo
+    if (auction.bids.length > 0 && auction.bids[auction.bids.length - 1].user.toLowerCase() === logged.user.toLowerCase()) {
+        alert("Você já é o líder atual deste leilão! Não precisa cobrir seu próprio lance.");
+        return;
+    }
+
     executeBid(auction, value);
 }
 
@@ -696,6 +758,12 @@ function fastBid(event, id, incremento) {
     let auction = auctions.find(x => x.id == id);
     let value = auction.price + incremento;
 
+    // 🔒 PROTEÇÃO: Evita dar lance rápido em cima de si mesmo
+    if (auction.bids.length > 0 && auction.bids[auction.bids.length - 1].user.toLowerCase() === logged.user.toLowerCase()) {
+        alert("Você já é o líder atual deste leilão!");
+        return;
+    }
+
     executeBid(auction, value);
 }
 
@@ -703,8 +771,26 @@ function executeBid(auction, value) {
     auction.price = value;
     auction.bids.push({ user: logged.user, value: value });
 
+    // ⏱️ REGRA ANTI-SNIPING (Tempo Extra nos minutos finais)
+    // Se faltar menos de 30 segundos (30.000ms), adiciona mais 30 segundos ao cronômetro
+    let tempoRestante = auction.time - Date.now();
+    if (tempoRestante > 0 && tempoRestante < 30000) {
+        auction.time = Date.now() + 30000; 
+    }
+
     saveToSupabase('leiloes', auctions);
     load();
+}
+
+// Interrupção manual do Admin
+function forceCloseAuction(event, id) {
+    if(event) event.preventDefault();
+    if (confirm("Tem certeza que deseja encerrar este leilão imediatamente?")) {
+        let auction = auctions.find(x => x.id == id);
+        if (auction) {
+            auction.time = Date.now(); // Força o tempo a zerar no próximo loop
+        }
+    }
 }
 
 setInterval(() => {
@@ -729,6 +815,13 @@ setInterval(() => {
             let sec = Math.floor(diff / 1000);
             let min = Math.floor(sec / 60);
             timer.innerHTML = "⏰ " + min + ":" + String(sec % 60).padStart(2, "0");
+            
+            // Alerta visual de urgência no último minuto (menos de 60 segundos)
+            if (diff < 60000) {
+                timer.classList.add("urgent");
+            } else {
+                timer.classList.remove("urgent");
+            }
         }
     });
     if(mudou) load();
