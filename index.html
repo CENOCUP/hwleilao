@@ -103,7 +103,6 @@
             border-color: #ffcc00;
             outline: none;
         }
-        /* Estilo personalizado para o botão de arquivo */
         input[type="file"] {
             padding: 8px;
             background: #222;
@@ -161,6 +160,20 @@
             color: #fff;
             margin: 5px 0;
         }
+        .lance-rapido-container {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        .btn-fast {
+            flex: 1;
+            background: #27ae60;
+            font-size: 12px;
+            padding: 8px 5px;
+        }
+        .btn-fast:hover {
+            background: #2ecc71;
+        }
         .historico-lances {
             background: #222;
             padding: 10px;
@@ -171,11 +184,14 @@
             margin-top: 10px;
             border-left: 3px solid #e10600;
         }
+        .my-bid-leading {
+            background: rgba(39, 174, 96, 0.15) !important;
+            border-left-color: #27ae60 !important;
+        }
         .hidden {
             display: none !important;
         }
         
-        /* TABELA ADMIN */
         .admin-table-container {
             overflow-x: auto;
             margin-top: 15px;
@@ -199,7 +215,6 @@
             background: #282828;
         }
 
-        /* METRICAS DA GARAGEM */
         .garagem-header {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -216,7 +231,6 @@
         .metrica-card h4 { margin: 0; color: #aaa; font-size: 14px; }
         .metrica-card p { margin: 5px 0 0 0; font-size: 22px; font-weight: bold; color: #fff; }
         
-        /* Preview da imagem selecionada */
         #imgPreviewContainer {
             text-align: center;
             margin: 10px 0;
@@ -269,7 +283,7 @@
         <div id="adminPanel" class="hidden card" style="border: 1px solid #ffcc00;">
             <h2>🛠 Painel do Administrador</h2>
             
-            <!-- ALTERAR SENHA DOS USUÁRIOS -->
+            <!-- GERENCIAR USUÁRIOS -->
             <h3>🔑 Gerenciar Senhas dos Usuários</h3>
             <div class="form-grid" style="align-items: flex-end;">
                 <div>
@@ -301,12 +315,11 @@
                 </div>
             </div>
             
-            <!-- NOVO CAMPO: SELECIONAR FOTO DA GALERIA -->
-            <label>Selecione a Foto da Miniatura (Galeria/Câmera)</label>
-            <input id="carPhotoFile" type="file" accept="image/*" onchange="previewImage(this)">
+            <label>Selecione a Foto da Miniatura (Qualquer tamanho de arquivo)</label>
+            <input id="carPhotoFile" type="file" accept="image/*" onchange="previewAndCompressImage(this)">
             
             <div id="imgPreviewContainer">
-                <img id="imgPreview" src="" alt="Preview da imagem">
+                <img id="imgPreview" src="" alt="Preview">
             </div>
             
             <label>Descrição do Item / Estado da Cartela</label>
@@ -373,9 +386,6 @@
 </div>
 
 <script>
-// ==========================================
-// CONFIGURAÇÃO DO SEU SUPABASE CONFIGURADO
-// ==========================================
 const SUPABASE_URL = "https://hzstdggxugkfialqtsnv.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8mVMLUB5VzUmae6jDlTtkA_g5ygcnT8"; 
 
@@ -385,9 +395,8 @@ let users = [{ user: "admin", pass: "1234", type: "admin" }];
 let auctions = [];
 let garages = {};
 let logged = null;
-let base64ImageString = ""; // Armazena a foto temporariamente
+let base64ImageString = ""; 
 
-// Carregar dados iniciais do banco
 async function loadFromSupabase() {
     let { data: resUsers } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'usuarios').single();
     if (resUsers) users = JSON.parse(resUsers.conteudo);
@@ -403,12 +412,10 @@ async function loadFromSupabase() {
     populateUserSelect();
 }
 
-// Salvar dados no banco
 async function saveToSupabase(id, obj) {
     await supabaseClient.from('leilao_dados').upsert({ id_leilao: id, conteudo: JSON.stringify(obj) });
 }
 
-// Iniciar escuta em Tempo Real do Supabase
 function initRealtime() {
     supabaseClient.channel('custom-all-channel')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'leilao_dados' }, () => {
@@ -417,23 +424,30 @@ function initRealtime() {
     .subscribe();
 }
 
-// Mostrar a miniatura da foto selecionada e converter para texto (Base64)
-function previewImage(input) {
+function previewAndCompressImage(input) {
     const file = input.files[0];
     if (file) {
-        // Alerta se a imagem for gigantesca para não estourar o limite do banco
-        if (file.size > 1500000) { 
-            alert("A imagem é muito pesada! Escolha uma foto mais leve ou tire um print dela para reduzir o tamanho.");
-            input.value = "";
-            return;
-        }
-        
         const reader = new FileReader();
         reader.onload = function(e) {
-            base64ImageString = e.target.result;
-            const preview = document.getElementById("imgPreview");
-            preview.src = base64ImageString;
-            preview.style.display = "inline-block";
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                const maxWidth = 600;
+                const scale = maxWidth / img.width;
+                canvas.width = maxWidth;
+                canvas.height = img.height * scale;
+                
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                base64ImageString = canvas.toDataURL('image/jpeg', 0.7);
+                
+                const preview = document.getElementById("imgPreview");
+                preview.src = base64ImageString;
+                preview.style.display = "inline-block";
+            }
         }
         reader.readAsDataURL(file);
     }
@@ -445,7 +459,7 @@ function createUser(event) {
     let p = document.getElementById("newPass").value.trim();
     
     if (!u) { alert("Digite um nome de usuário!"); return; }
-    if (!p) { alert("Defina uma senha para sua segurança!"); return; }
+    if (!p) { alert("Defina uma senha!"); return; }
 
     if (users.find(x => x.user.toLowerCase() === u.toLowerCase())) {
         alert("Este usuário já está cadastrado!");
@@ -454,7 +468,7 @@ function createUser(event) {
 
     users.push({ user: u, pass: p, type: "user" });
     saveToSupabase('usuarios', users);
-    alert("Usuário '" + u + "' criado com sucesso com sua senha personalizada!");
+    alert("Usuário '" + u + "' criado com sucesso!");
     document.getElementById("newUser").value = "";
     document.getElementById("newPass").value = "";
     loadFromSupabase();
@@ -466,7 +480,7 @@ function changeUserPassword(event) {
     let newPassword = document.getElementById("changePassNew").value.trim();
 
     if(!newPassword) {
-        alert("Por favor, digite a nova senha!");
+        alert("Digite a nova senha!");
         return;
     }
 
@@ -474,7 +488,7 @@ function changeUserPassword(event) {
     if(userIndex !== -1) {
         users[userIndex].pass = newPassword;
         saveToSupabase('usuarios', users);
-        alert("Senha de " + selectedUser + " alterada com sucesso!");
+        alert("Senha de " + selectedUser + " alterada!");
         document.getElementById("changePassNew").value = "";
     }
 }
@@ -488,19 +502,22 @@ function populateUserSelect() {
     });
 }
 
+// 🔑 FUNÇÃO DE LOGIN ATUALIZADA COM PROTEÇÃO CONTRA ESPAÇOS E ATUALIZAÇÃO FORÇADA
 function login(event) {
     if(event) event.preventDefault();
-    let u = document.getElementById("loginUser").value.trim();
-    let p = document.getElementById("loginPass").value;
+    
+    // .trim() remove espaços invisíveis que o teclado do celular põe no início ou fim
+    let u = document.getElementById("loginUser").value.trim().toLowerCase();
+    let p = document.getElementById("loginPass").value.trim();
 
-    let found = users.find(x => x.user == u && x.pass == p);
+    let found = users.find(x => x.user.toLowerCase() == u && x.pass.trim() == p);
 
     if (found) {
         logged = found;
         localStorage.setItem("hw_session", JSON.stringify(found));
         entrarNoPainel(found);
     } else {
-        alert("Usuário ou senha incorretos.");
+        alert("Usuário ou senha incorretos.\n\nDica: Verifique se o seu celular não colocou uma letra maiúscula ou espaço por engano!");
     }
 }
 
@@ -522,7 +539,7 @@ function checkSavedSession() {
     let session = localStorage.getItem("hw_session");
     if (session) {
         let savedUser = JSON.parse(session);
-        let found = users.find(x => x.user == savedUser.user && x.pass == savedUser.pass);
+        let found = users.find(x => x.user.toLowerCase() == savedUser.user.toLowerCase() && x.pass.trim() == savedUser.pass.trim());
         if (found) {
             logged = found;
             entrarNoPainel(found);
@@ -553,7 +570,6 @@ function addAuction(event) {
         return;
     }
 
-    // Se o admin não colocou foto nenhuma, usa uma padrão do Unsplash
     let finalPhoto = base64ImageString || "https://images.unsplash.com/photo-1594787318286-3d835c1d207f?q=80&w=250";
 
     auctions.push({
@@ -573,7 +589,6 @@ function addAuction(event) {
 
     saveToSupabase('leiloes', auctions);
 
-    // Resetar campos do formulário
     document.getElementById("carName").value = "";
     document.getElementById("carCategory").value = "";
     document.getElementById("carYear").value = "";
@@ -599,6 +614,9 @@ function load() {
     }
 
     ativos.forEach(a => {
+        let amILeading = a.bids.length > 0 && logged && a.bids[a.bids.length - 1].user.toLowerCase() === logged.user.toLowerCase();
+        let historicoClass = amILeading ? "historico-lances my-bid-leading" : "historico-lances";
+
         let div = document.createElement("div");
         div.className = "leilao-item";
         div.innerHTML = `
@@ -612,10 +630,18 @@ function load() {
                 <hr style="border-color: #222; margin: 10px 0;">
                 <div class="lance-atual">Lance Atual: <span style="color: #00ff66;">R$ ${a.price.toFixed(2)}</span></div>
                 <div class="timer" id="timer${a.id}">Calculando...</div>
-                <input id="bid${a.id}" type="number" step="0.01" placeholder="Valor maior que R$ ${a.price.toFixed(2)}">
-                <button type="button" style="width: 100%;" onclick="bid(event, ${a.id})">🔨 DAR LANCE</button>
-                <div class="historico-lances">
-                    <strong>Histórico recente:</strong>
+                
+                <div class="lance-rapido-container">
+                    <button type="button" class="btn-fast" onclick="fastBid(event, ${a.id}, 2)">+ R$ 2</button>
+                    <button type="button" class="btn-fast" onclick="fastBid(event, ${a.id}, 5)">+ R$ 5</button>
+                    <button type="button" class="btn-fast" onclick="fastBid(event, ${a.id}, 10)">+ R$ 10</button>
+                </div>
+
+                <input id="bid${a.id}" type="number" step="0.01" placeholder="Ou digite um valor personalizado">
+                <button type="button" style="width: 100%;" onclick="bid(event, ${a.id})">🔨 DAR LANCE PERSONALIZADO</button>
+                
+                <div class="${historicoClass}">
+                    <strong>${amILeading ? '✅ VOCÊ ESTÁ VENCENDO!' : 'Histórico recente:'}</strong>
                     ${a.bids.length === 0 ? '<p style="margin:5px 0; color:#777;">Nenhum lance.</p>' : 
                       a.bids.slice(-3).reverse().map(b => `<p style="margin:3px 0;">• ${b.user}: R$ ${b.value.toFixed(2)}</p>`).join("")}
                 </div>
@@ -656,10 +682,24 @@ function bid(event, id) {
     let value = Number(document.getElementById("bid" + id).value);
 
     if (value <= auction.price) {
-        alert("Seu lance precisa ser maior!");
+        alert("Seu lance precisa ser maior que o lance atual!");
         return;
     }
 
+    executeBid(auction, value);
+}
+
+function fastBid(event, id, incremento) {
+    if(event) event.preventDefault();
+    if(!logged) { alert("Você precisa estar logado!"); return; }
+
+    let auction = auctions.find(x => x.id == id);
+    let value = auction.price + incremento;
+
+    executeBid(auction, value);
+}
+
+function executeBid(auction, value) {
     auction.price = value;
     auction.bids.push({ user: logged.user, value: value });
 
@@ -728,7 +768,6 @@ function deleteAuction(event, id) {
     }
 }
 
-// Inicialização
 loadFromSupabase();
 initRealtime();
 </script>
