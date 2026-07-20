@@ -103,6 +103,12 @@
             border-color: #ffcc00;
             outline: none;
         }
+        /* Estilo personalizado para o botão de arquivo */
+        input[type="file"] {
+            padding: 8px;
+            background: #222;
+            cursor: pointer;
+        }
         .form-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -209,6 +215,19 @@
         }
         .metrica-card h4 { margin: 0; color: #aaa; font-size: 14px; }
         .metrica-card p { margin: 5px 0 0 0; font-size: 22px; font-weight: bold; color: #fff; }
+        
+        /* Preview da imagem selecionada */
+        #imgPreviewContainer {
+            text-align: center;
+            margin: 10px 0;
+        }
+        #imgPreview {
+            max-width: 150px;
+            max-height: 150px;
+            border-radius: 8px;
+            border: 2px dashed #444;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -282,8 +301,13 @@
                 </div>
             </div>
             
-            <label>URL da Imagem do Carro</label>
-            <input id="carPhoto" placeholder="Link da foto (ou deixe em branco para imagem padrão)">
+            <!-- NOVO CAMPO: SELECIONAR FOTO DA GALERIA -->
+            <label>Selecione a Foto da Miniatura (Galeria/Câmera)</label>
+            <input id="carPhotoFile" type="file" accept="image/*" onchange="previewImage(this)">
+            
+            <div id="imgPreviewContainer">
+                <img id="imgPreview" src="" alt="Preview da imagem">
+            </div>
             
             <label>Descrição do Item / Estado da Cartela</label>
             <textarea id="carDesc" placeholder="Detalhes sobre a miniatura..."></textarea>
@@ -361,24 +385,20 @@ let users = [{ user: "admin", pass: "1234", type: "admin" }];
 let auctions = [];
 let garages = {};
 let logged = null;
+let base64ImageString = ""; // Armazena a foto temporariamente
 
 // Carregar dados iniciais do banco
 async function loadFromSupabase() {
-    // Buscar Usuários
     let { data: resUsers } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'usuarios').single();
     if (resUsers) users = JSON.parse(resUsers.conteudo);
 
-    // Buscar Leilões
     let { data: resAuctions } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'leiloes').single();
     if (resAuctions) auctions = JSON.parse(resAuctions.conteudo);
 
-    // Buscar Garagens
     let { data: resGarages } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'garagens').single();
     if (resGarages) garages = JSON.parse(resGarages.conteudo);
 
-    // Verificar se já existe uma sessão salva no celular
     checkSavedSession();
-
     load();
     populateUserSelect();
 }
@@ -395,6 +415,28 @@ function initRealtime() {
         loadFromSupabase();
     })
     .subscribe();
+}
+
+// Mostrar a miniatura da foto selecionada e converter para texto (Base64)
+function previewImage(input) {
+    const file = input.files[0];
+    if (file) {
+        // Alerta se a imagem for gigantesca para não estourar o limite do banco
+        if (file.size > 1500000) { 
+            alert("A imagem é muito pesada! Escolha uma foto mais leve ou tire um print dela para reduzir o tamanho.");
+            input.value = "";
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            base64ImageString = e.target.result;
+            const preview = document.getElementById("imgPreview");
+            preview.src = base64ImageString;
+            preview.style.display = "inline-block";
+        }
+        reader.readAsDataURL(file);
+    }
 }
 
 function createUser(event) {
@@ -418,7 +460,6 @@ function createUser(event) {
     loadFromSupabase();
 }
 
-// Função do Admin para Alterar Senha de qualquer usuário
 function changeUserPassword(event) {
     if(event) event.preventDefault();
     let selectedUser = document.getElementById("changePassUser").value;
@@ -438,7 +479,6 @@ function changeUserPassword(event) {
     }
 }
 
-// Alimenta o campo select com os usuários cadastrados
 function populateUserSelect() {
     let select = document.getElementById("changePassUser");
     if(!select) return;
@@ -457,9 +497,7 @@ function login(event) {
 
     if (found) {
         logged = found;
-        // Salva a sessão no navegador para não deslogar no F5/Atualizar
         localStorage.setItem("hw_session", JSON.stringify(found));
-        
         entrarNoPainel(found);
     } else {
         alert("Usuário ou senha incorretos.");
@@ -484,7 +522,6 @@ function checkSavedSession() {
     let session = localStorage.getItem("hw_session");
     if (session) {
         let savedUser = JSON.parse(session);
-        // Atualiza a referência local com os dados atualizados do banco (caso a senha mude)
         let found = users.find(x => x.user == savedUser.user && x.pass == savedUser.pass);
         if (found) {
             logged = found;
@@ -498,7 +535,7 @@ function checkSavedSession() {
 function logout(event) {
     if(event) event.preventDefault();
     logged = null;
-    localStorage.removeItem("hw_session"); // Remove o login salvo do celular
+    localStorage.removeItem("hw_session");
     document.getElementById("system").classList.add("hidden");
     document.getElementById("loginPage").classList.remove("hidden");
     document.getElementById("loginUser").value = "";
@@ -516,14 +553,15 @@ function addAuction(event) {
         return;
     }
 
-    let photoUrl = document.getElementById("carPhoto").value.trim() || "https://images.unsplash.com/photo-1594787318286-3d835c1d207f?q=80&w=250";
+    // Se o admin não colocou foto nenhuma, usa uma padrão do Unsplash
+    let finalPhoto = base64ImageString || "https://images.unsplash.com/photo-1594787318286-3d835c1d207f?q=80&w=250";
 
     auctions.push({
         id: Date.now(),
         name: name,
         category: document.getElementById("carCategory").value.trim() || "Mainline",
         year: document.getElementById("carYear").value.trim() || "N/A",
-        photo: photoUrl,
+        photo: finalPhoto,
         desc: document.getElementById("carDesc").value.trim() || "Sem descrição.",
         price: startPrice,
         startPrice: startPrice,
@@ -535,13 +573,17 @@ function addAuction(event) {
 
     saveToSupabase('leiloes', auctions);
 
+    // Resetar campos do formulário
     document.getElementById("carName").value = "";
     document.getElementById("carCategory").value = "";
     document.getElementById("carYear").value = "";
-    document.getElementById("carPhoto").value = "";
+    document.getElementById("carPhotoFile").value = "";
     document.getElementById("carDesc").value = "";
     document.getElementById("carStart").value = "";
     document.getElementById("carTime").value = "";
+    document.getElementById("imgPreview").style.display = "none";
+    base64ImageString = ""; 
+    
     load();
 }
 
@@ -680,7 +722,6 @@ function showGarage() {
 function deleteAuction(event, id) {
     if(event) event.preventDefault();
     if (confirm("Deseja remover esse leilão?")) {
-        // Correção de bug ortográfico: alterado 'zipgarages' para 'garages'
         auctions = auctions.filter(x => x.id != id);
         saveToSupabase('leiloes', auctions);
         load();
