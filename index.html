@@ -343,8 +343,9 @@
                 </div>
             </div>
             
-            <label>Selecione a Foto da Miniatura (Qualquer tamanho de arquivo)</label>
-            <input id="carPhotoFile" type="file" accept="image/*" onchange="previewAndCompressImage(this)">
+            <!-- ATUALIZADO: accept="image/*" e capture="environment" abrem direto a câmera traseira do celular -->
+            <label>Tirar Foto / Selecionar Imagem (Abre a Câmera Direto no Celular)</label>
+            <input id="carPhotoFile" type="file" accept="image/*" capture="environment" onchange="previewAndCompressImage(this)">
             
             <div id="imgPreviewContainer">
                 <img id="imgPreview" src="" alt="Preview">
@@ -429,7 +430,7 @@ let auctions = [];
 let garages = {};
 let logged = null;
 let base64ImageString = ""; 
-let currentAdminFilter = "all"; // Filtro padrão da tabela do admin
+let currentAdminFilter = "all";
 
 async function loadFromSupabase() {
     let { data: resUsers } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'usuarios').single();
@@ -699,11 +700,9 @@ function renderAdminTable() {
     let tbody = document.getElementById("adminTableBody");
     tbody.innerHTML = "";
 
-    // Calcular faturamento total de itens encerrados
     let totalFaturado = auctions.filter(a => !a.active && a.winner).reduce((sum, a) => sum + a.price, 0);
     document.getElementById("adminMetricTotal").innerText = "R$ " + totalFaturado.toFixed(2);
 
-    // Filtragem da tabela
     let filteredAuctions = auctions;
     if (currentAdminFilter === "active") filteredAuctions = auctions.filter(a => a.active);
     if (currentAdminFilter === "closed") filteredAuctions = auctions.filter(a => !a.active);
@@ -712,7 +711,6 @@ function renderAdminTable() {
         let statusText = a.active ? `<span style="color:#00ff66; font-weight:bold;">🔥 Ativo</span>` : `<span style="color:#ff3333;">🛑 Encerrado</span>`;
         let actionButtons = `<button type="button" class="btn-danger" style="padding: 6px 10px; font-size:12px; margin-right:5px;" onclick="deleteAuction(event, ${a.id})">Deletar</button>`;
         
-        // Adiciona botão para encerrar na hora se estiver ativo
         if (a.active) {
             actionButtons += `<button type="button" class="btn-secondary" style="padding: 6px 10px; font-size:12px; background:#d35400;" onclick="forceCloseAuction(event, ${a.id})">Encerrar</button>`;
         }
@@ -730,6 +728,7 @@ function renderAdminTable() {
     });
 }
 
+// ATUALIZADO: Com confirmação antes de computar o lance personalizado
 function bid(event, id) {
     if(event) event.preventDefault();
     if(!logged) { alert("Você precisa estar logado!"); return; }
@@ -742,15 +741,19 @@ function bid(event, id) {
         return;
     }
 
-    // 🔒 PROTEÇÃO: Evita dar lance em cima de si mesmo
     if (auction.bids.length > 0 && auction.bids[auction.bids.length - 1].user.toLowerCase() === logged.user.toLowerCase()) {
-        alert("Você já é o líder atual deste leilão! Não precisa cobrir seu próprio lance.");
+        alert("Você já é o líder atual deste leilão!");
         return;
     }
 
-    executeBid(auction, value);
+    // Caixa de confirmação nativa
+    if (confirm(`Confirmar lance personalizado de R$ ${value.toFixed(2)} em "${auction.name}"?`)) {
+        executeBid(auction, value);
+        document.getElementById("bid" + id).value = ""; // limpa o input após dar o lance
+    }
 }
 
+// ATUALIZADO: Com confirmação antes de computar o lance rápido
 function fastBid(event, id, incremento) {
     if(event) event.preventDefault();
     if(!logged) { alert("Você precisa estar logado!"); return; }
@@ -758,21 +761,21 @@ function fastBid(event, id, incremento) {
     let auction = auctions.find(x => x.id == id);
     let value = auction.price + incremento;
 
-    // 🔒 PROTEÇÃO: Evita dar lance rápido em cima de si mesmo
     if (auction.bids.length > 0 && auction.bids[auction.bids.length - 1].user.toLowerCase() === logged.user.toLowerCase()) {
         alert("Você já é o líder atual deste leilão!");
         return;
     }
 
-    executeBid(auction, value);
+    // Caixa de confirmação nativa
+    if (confirm(`Confirmar lance rápido de +R$ ${incremento} (Total: R$ ${value.toFixed(2)}) em "${auction.name}"?`)) {
+        executeBid(auction, value);
+    }
 }
 
 function executeBid(auction, value) {
     auction.price = value;
     auction.bids.push({ user: logged.user, value: value });
 
-    // ⏱️ REGRA ANTI-SNIPING (Tempo Extra nos minutos finais)
-    // Se faltar menos de 30 segundos (30.000ms), adiciona mais 30 segundos ao cronômetro
     let tempoRestante = auction.time - Date.now();
     if (tempoRestante > 0 && tempoRestante < 30000) {
         auction.time = Date.now() + 30000; 
@@ -782,13 +785,12 @@ function executeBid(auction, value) {
     load();
 }
 
-// Interrupção manual do Admin
 function forceCloseAuction(event, id) {
     if(event) event.preventDefault();
     if (confirm("Tem certeza que deseja encerrar este leilão imediatamente?")) {
         let auction = auctions.find(x => x.id == id);
         if (auction) {
-            auction.time = Date.now(); // Força o tempo a zerar no próximo loop
+            auction.time = Date.now(); 
         }
     }
 }
@@ -816,7 +818,6 @@ setInterval(() => {
             let min = Math.floor(sec / 60);
             timer.innerHTML = "⏰ " + min + ":" + String(sec % 60).padStart(2, "0");
             
-            // Alerta visual de urgência no último minuto (menos de 60 segundos)
             if (diff < 60000) {
                 timer.classList.add("urgent");
             } else {
