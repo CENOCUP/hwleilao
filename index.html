@@ -262,6 +262,14 @@
             border: 2px dashed #444;
             display: none;
         }
+        
+        .sniper-box {
+            background: #1f1b12;
+            border: 1px dashed #d35400;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -293,17 +301,21 @@
     <!-- SISTEMA -->
     <div id="system" class="hidden">
         
-        <!-- HEADER USUARIO -->
+        <!-- HEADER USUARIO & ONLINE COUNTER -->
         <div class="card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
             <h2 style="border: none; padding: 0; margin: 0;">👤 Olá, <span id="currentUser" style="color: #fff;"></span>!</h2>
-            <button type="button" class="btn-secondary" onclick="logout(event)">🚪 Sair do Sistema</button>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span id="onlineCounter" style="background: rgba(0,255,102,0.1); color: #00ff66; padding: 8px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; border: 1px solid rgba(0,255,102,0.3);">
+                    🟢 1 Colecionador Online
+                </span>
+                <button type="button" class="btn-secondary" onclick="logout(event)">🚪 Sair</button>
+            </div>
         </div>
 
         <!-- 🛠 PAINEL ADMINISTRADOR -->
         <div id="adminPanel" class="hidden card" style="border: 1px solid #ffcc00;">
             <h2>🛠 Painel do Administrador</h2>
             
-            <!-- MÉTRICAS DO ADMIN -->
             <div class="garagem-header">
                 <div class="metrica-card" style="border-left-color: #27ae60;">
                     <h4>Total Faturado (Encerrados)</h4>
@@ -311,7 +323,6 @@
                 </div>
             </div>
 
-            <!-- GERENCIAR USUÁRIOS -->
             <h3>🔑 Gerenciar Senhas dos Usuários</h3>
             <div class="form-grid" style="align-items: flex-end;">
                 <div>
@@ -343,8 +354,7 @@
                 </div>
             </div>
             
-            <!-- ATUALIZADO: accept="image/*" e capture="environment" abrem direto a câmera traseira do celular -->
-            <label>Tirar Foto / Selecionar Imagem (Abre a Câmera Direto no Celular)</label>
+            <label>Tirar Foto / Selecionar Imagem</label>
             <input id="carPhotoFile" type="file" accept="image/*" capture="environment" onchange="previewAndCompressImage(this)">
             
             <div id="imgPreviewContainer">
@@ -431,6 +441,7 @@ let garages = {};
 let logged = null;
 let base64ImageString = ""; 
 let currentAdminFilter = "all";
+let presenceChannel = null;
 
 async function loadFromSupabase() {
     let { data: resUsers } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'usuarios').single();
@@ -445,6 +456,7 @@ async function loadFromSupabase() {
     checkSavedSession();
     load();
     populateUserSelect();
+    checkSnipers(); // Executa o motor do sniper caso haja lances novos
 }
 
 async function saveToSupabase(id, obj) {
@@ -457,6 +469,34 @@ function initRealtime() {
         loadFromSupabase();
     })
     .subscribe();
+}
+
+// Configuração do canal de presença para contar usuários online em tempo real
+function setupPresence() {
+    if (!logged) return;
+    
+    presenceChannel = supabaseClient.channel('online-users', {
+        config: {
+            presence: {
+                key: logged.user,
+            },
+        },
+    });
+
+    presenceChannel
+        .on('presence', { event: 'sync' }, () => {
+            const state = presenceChannel.presenceState();
+            const totalOnline = Object.keys(state).length;
+            const counterEl = document.getElementById("onlineCounter");
+            if (counterEl) {
+                counterEl.innerHTML = `🟢 ${totalOnline} Colecionador${totalOnline > 1 ? 'es' : ''} Online`;
+            }
+        })
+        .subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                await presenceChannel.track({ user: logged.user, online_at: new Date().toISOString() });
+            }
+        });
 }
 
 function previewAndCompressImage(input) {
@@ -549,7 +589,7 @@ function login(event) {
         localStorage.setItem("hw_session", JSON.stringify(found));
         entrarNoPainel(found);
     } else {
-        alert("Usuário ou senha incorretos.\n\nDica: Verifique se o seu celular não colocou uma letra maiúscula ou espaço por engano!");
+        alert("Usuário ou senha incorretos.");
     }
 }
 
@@ -564,6 +604,7 @@ function entrarNoPainel(usuario) {
     } else {
         document.getElementById("adminPanel").classList.add("hidden");
     }
+    setupPresence();
     load();
 }
 
@@ -583,6 +624,7 @@ function checkSavedSession() {
 
 function logout(event) {
     if(event) event.preventDefault();
+    if(presenceChannel) supabaseClient.removeChannel(presenceChannel);
     logged = null;
     localStorage.removeItem("hw_session");
     document.getElementById("system").classList.add("hidden");
@@ -616,7 +658,8 @@ function addAuction(event) {
         time: Date.now() + (duration * 60000),
         active: true,
         winner: null,
-        bids: []
+        bids: [],
+        snipers: {} // Guarda o teto de lance automático de cada usuário { "nome_usuario": valor_maximo }
     });
 
     saveToSupabase('leiloes', auctions);
@@ -648,6 +691,7 @@ function load() {
     ativos.forEach(a => {
         let amILeading = a.bids.length > 0 && logged && a.bids[a.bids.length - 1].user.toLowerCase() === logged.user.toLowerCase();
         let historicoClass = amILeading ? "historico-lances my-bid-leading" : "historico-lances";
+        let mySniperLimit = (logged && a.snipers && a.snipers[logged.user]) ? a.snipers[logged.user] : "";
 
         let div = document.createElement("div");
         div.className = "leilao-item";
@@ -669,9 +713,18 @@ function load() {
                     <button type="button" class="btn-fast" onclick="fastBid(event, ${a.id}, 10)">+ R$ 10</button>
                 </div>
 
-                <input id="bid${a.id}" type="number" step="0.01" placeholder="Ou digite um valor personalizado">
-                <button type="button" style="width: 100%;" onclick="bid(event, ${a.id})">🔨 DAR LANCE PERSONALIZADO</button>
+                <input id="bid${a.id}" type="number" step="0.01" placeholder="Ou digite valor personalizado">
+                <button type="button" style="width: 100%; margin-bottom: 10px;" onclick="bid(event, ${a.id})">🔨 DAR LANCE MANUAL</button>
                 
+                <!-- MODO SNIPER TOTAL -->
+                <div class="sniper-box">
+                    <label style="font-size: 12px; color: #ffcc00; font-weight: bold; margin: 0;">🎯 MODO SNIPER (Teto Automático)</label>
+                    <div style="display: flex; gap: 5px; margin-top: 5px;">
+                        <input id="sniper${a.id}" type="number" step="0.01" placeholder="Seu teto máximo" value="${mySniperLimit}" style="margin: 0; padding: 8px;">
+                        <button type="button" style="background: #d35400; padding: 0 12px; font-size: 12px;" onclick="saveSniper(event, ${a.id})">Salvar</button>
+                    </div>
+                </div>
+
                 <div class="${historicoClass}">
                     <strong>${amILeading ? '✅ VOCÊ ESTÁ VENCENDO!' : 'Histórico recente:'}</strong>
                     ${a.bids.length === 0 ? '<p style="margin:5px 0; color:#777;">Nenhum lance.</p>' : 
@@ -728,7 +781,66 @@ function renderAdminTable() {
     });
 }
 
-// ATUALIZADO: Com confirmação antes de computar o lance personalizado
+// Configurar o Teto Automático do Sniper
+function saveSniper(event, id) {
+    if(event) event.preventDefault();
+    if(!logged) { alert("Faça login!"); return; }
+
+    let auction = auctions.find(x => x.id == id);
+    let teto = Number(document.getElementById("sniper" + id).value);
+
+    if (teto <= auction.price) {
+        alert("O teto do sniper precisa ser maior que o preço atual do leilão!");
+        return;
+    }
+
+    if (!auction.snipers) auction.snipers = {};
+    auction.snipers[logged.user] = teto;
+
+    saveToSupabase('leiloes', auctions);
+    alert(`🎯 Modo Sniper ativado! O sistema vai cobrir automaticamente lances até R$ ${teto.toFixed(2)} para você.`);
+    load();
+}
+
+// MOTOR DO SNIPER: Verifica se algum usuário configurou teto e dispara contra lances rivais
+function checkSnipers() {
+    let alterou = false;
+    auctions.forEach(a => {
+        if (!a.active || !a.snipers) return;
+        
+        if (a.bids.length > 0) {
+            let liderAtual = a.bids[a.bids.length - 1].user;
+            
+            // Encontra se há outro usuário com teto maior que o preço atual e que não seja o líder
+            for (let [userSniper, tetoMax] of Object.entries(a.snipers)) {
+                if (userSniper.toLowerCase() !== liderAtual.toLowerCase() && tetoMax > a.price) {
+                    // Calcula o novo preço (incremento padrão de R$ 2 ou o suficiente para cobrir)
+                    let novoLance = a.price + 2;
+                    if (novoLance > tetoMax) {
+                        novoLance = tetoMax; // Se o teto for menor que o incremento total, assume o teto exato
+                    }
+
+                    if (novoLance > a.price) {
+                        a.price = novoLance;
+                        a.bids.push({ user: userSniper, value: novoLance });
+                        alterou = true;
+                        
+                        // Estica o tempo se faltar menos de 30 segundos
+                        let tempoRestante = a.time - Date.now();
+                        if (tempoRestante > 0 && tempoRestante < 30000) {
+                            a.time = Date.now() + 30000;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    if (alterou) {
+        saveToSupabase('leiloes', auctions);
+    }
+}
+
 function bid(event, id) {
     if(event) event.preventDefault();
     if(!logged) { alert("Você precisa estar logado!"); return; }
@@ -746,14 +858,12 @@ function bid(event, id) {
         return;
     }
 
-    // Caixa de confirmação nativa
     if (confirm(`Confirmar lance personalizado de R$ ${value.toFixed(2)} em "${auction.name}"?`)) {
         executeBid(auction, value);
-        document.getElementById("bid" + id).value = ""; // limpa o input após dar o lance
+        document.getElementById("bid" + id).value = ""; 
     }
 }
 
-// ATUALIZADO: Com confirmação antes de computar o lance rápido
 function fastBid(event, id, incremento) {
     if(event) event.preventDefault();
     if(!logged) { alert("Você precisa estar logado!"); return; }
@@ -766,7 +876,6 @@ function fastBid(event, id, incremento) {
         return;
     }
 
-    // Caixa de confirmação nativa
     if (confirm(`Confirmar lance rápido de +R$ ${incremento} (Total: R$ ${value.toFixed(2)}) em "${auction.name}"?`)) {
         executeBid(auction, value);
     }
@@ -782,6 +891,7 @@ function executeBid(auction, value) {
     }
 
     saveToSupabase('leiloes', auctions);
+    checkSnipers(); // Dispara o motor do sniper logo após um lance manual
     load();
 }
 
