@@ -137,7 +137,6 @@
             flex-direction: column;
             justify-content: space-between;
         }
-        /* CORREÇÃO DO ENQUADRAMENTO DA FOTO (EXIBE A IMAGEM INTEIRA SEM CORTES) */
         .leilao-item img {
             width: 100%;
             height: 220px;
@@ -283,7 +282,6 @@
             margin-top: 10px;
         }
 
-        /* NAVEGAÇÃO PRINCIPAL */
         .main-tabs-nav {
             display: flex;
             gap: 10px;
@@ -314,7 +312,6 @@
             box-shadow: 0 4px 12px rgba(225, 6, 0, 0.4);
         }
 
-        /* ABAS DO ADMIN */
         .admin-tabs-nav {
             display: flex;
             gap: 10px;
@@ -400,12 +397,11 @@
             <div id="auctions" class="grid"></div>
         </div>
 
-        <!-- ================= ABA 2: LOJA (ABERTA PARA TODOS OS USUÁRIOS) ================= -->
+        <!-- ================= ABA 2: LOJA ================= -->
         <div id="mainSectionLoja" class="card hidden">
             <h2>🛒 Vitrine da Loja (Comunidade)</h2>
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px;">Aqui qualquer colecionador pode anunciar miniaturas para venda direta com preço fixo!</p>
             
-            <!-- FORMULÁRIO RÁPIDO PARA ANUNCIAR NA LOJA -->
             <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 25px;">
                 <h3 style="margin-top:0; color:#ffcc00; font-size:16px;">➕ Anunciar Miniatura na Loja</h3>
                 <div class="form-grid">
@@ -438,7 +434,6 @@
                 <button type="button" style="background: #27ae60;" onclick="publicarNaLoja(event)">🚀 Colocar à Venda na Loja</button>
             </div>
 
-            <!-- FILTROS DE VISUALIZAÇÃO DA LOJA -->
             <div style="margin-bottom: 15px; display: flex; gap: 10px;">
                 <button type="button" class="btn-secondary btn-filter active" id="storeFilterAll" onclick="changeStoreFilter('all')">Todas as Peças</button>
                 <button type="button" class="btn-secondary btn-filter" id="storeFilterMine" onclick="changeStoreFilter('mine')">Meus Anúncios</button>
@@ -559,7 +554,7 @@
             <div id="adminTabFinanceiro" class="hidden">
                 <div class="garagem-header">
                     <div class="metrica-card" style="border-left-color: #27ae60;">
-                        <h4>Total Faturado (Geral)</h4>
+                        <h4>Total Faturado (Garagens)</h4>
                         <p id="adminMetricTotal" style="color: #00ff66;">R$ 0,00</p>
                     </div>
                 </div>
@@ -576,7 +571,7 @@
                 <hr style="border-color: #333; margin: 30px 0;">
 
                 <h3>🧾 Conferência de Comprovantes Enviados</h3>
-                <p style="color: #aaa; font-size: 13px;">Aqui você acompanha os pagamentos informados pelos compradores e aprova para liberar na garagem deles.</p>
+                <p style="color: #aaa; font-size: 13px;">Aqui você acompanha todos os itens adquiridos nas garagens e aprova os comprovantes enviados pelos compradores.</p>
                 <div class="admin-table-container">
                     <table>
                         <thead>
@@ -1127,7 +1122,9 @@ function comprarItemLoja(id) {
             name: item.name + ` (Loja de ${item.seller})`, 
             photo: item.photo, 
             price: item.price, 
-            pago: false 
+            pago: false,
+            statusPagamento: 'pendente',
+            comprovante: null
         });
 
         saveToSupabase('garagens', garages);
@@ -1176,7 +1173,6 @@ function load() {
                 <input id="bid${a.id}" type="number" step="0.01" placeholder="Ou digite valor personalizado">
                 <button type="button" style="width: 100%; margin-bottom: 10px;" onclick="bid(event, ${a.id})">🔨 DAR LANCE MANUAL</button>
                 
-                <!-- MODO SNIPER TOTAL -->
                 <div class="sniper-box">
                     <label style="font-size: 12px; color: #ffcc00; font-weight: bold; margin: 0;">🎯 MODO SNIPER (Teto Automático)</label>
                     <div style="display: flex; gap: 5px; margin-top: 5px;">
@@ -1254,31 +1250,70 @@ function renderAdminTables() {
         });
     }
 
-    let totalFaturado = auctions.filter(a => !a.active && a.winner).reduce((sum, a) => sum + a.price, 0);
-    document.getElementById("adminMetricTotal").innerText = "R$ " + totalFaturado.toFixed(2);
+    // Coleta todas as vendas (leilões finalizados + loja) para calcular faturamento total e exibir no financeiro
+    let totalFaturadoLeiloes = auctions.filter(a => !a.active && a.winner).reduce((sum, a) => sum + a.price, 0);
+    let totalFaturadoLoja = 0;
+    for (let user in garages) {
+        garages[user].forEach(item => {
+            if (item.pago || item.statusPagamento === 'aprovado') {
+                totalFaturadoLoja += item.price;
+            }
+        });
+    }
+    document.getElementById("adminMetricTotal").innerText = "R$ " + (totalFaturadoLeiloes + totalFaturadoLoja).toFixed(2);
 
     let tbodyFinanceiro = document.getElementById("adminFinanceTableBody");
     tbodyFinanceiro.innerHTML = "";
     
-    let fechadosComComprador = auctions.filter(a => !a.active && a.winner);
-    if(fechadosComComprador.length === 0) {
-        tbodyFinanceiro.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888;">Nenhuma venda finalizada.</td></tr>`;
+    let listaFinanceiro = [];
+
+    // Adiciona leilões fechados
+    auctions.filter(a => !a.active && a.winner).forEach(a => {
+        listaFinanceiro.push({
+            idRef: a.id,
+            tipo: 'leilao',
+            name: a.name,
+            winner: a.winner,
+            price: a.price,
+            statusPagamento: a.statusPagamento || 'pendente',
+            comprovante: a.comprovante
+        });
+    });
+
+    // Adiciona itens de garagens (Loja)
+    for (let username in garages) {
+        garages[username].forEach(item => {
+            listaFinanceiro.push({
+                idRef: item.idLeilao,
+                tipo: 'loja',
+                username: username,
+                name: item.name,
+                winner: username,
+                price: item.price,
+                statusPagamento: item.statusPagamento || (item.pago ? 'aprovado' : 'pendente'),
+                comprovante: item.comprovante
+            });
+        });
+    }
+
+    if(listaFinanceiro.length === 0) {
+        tbodyFinanceiro.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888;">Nenhuma venda ou aquisição registrada.</td></tr>`;
     } else {
-        fechadosComComprador.forEach(a => {
+        listaFinanceiro.forEach(item => {
             let acaoPix = "";
-            if (a.statusPagamento === 'aprovado') {
+            if (item.statusPagamento === 'aprovado') {
                 acaoPix = `<span style="color: #27ae60; font-weight:bold;">🟢 Pago & Aprovado</span>`;
-            } else if (a.statusPagamento === 'analise') {
-                acaoPix = `<button type="button" style="background:#d35400; padding:6px 12px; font-size:12px;" onclick="verComprovante(${a.id})">🔍 Ver Comprovante</button>`;
+            } else if (item.statusPagamento === 'analise' || item.comprovante) {
+                acaoPix = `<button type="button" style="background:#d35400; padding:6px 12px; font-size:12px;" onclick="verComprovante('${item.tipo}', ${item.idRef}, '${item.winner}')">🔍 Ver Comprovante</button>`;
             } else {
                 acaoPix = `<span style="color: #f39c12;">Aguardando Comprovante</span>`;
             }
 
             tbodyFinanceiro.innerHTML += `
                 <tr>
-                    <td><strong>${a.name}</strong></td>
-                    <td>${a.winner}</td>
-                    <td>R$ ${a.price.toFixed(2)}</td>
+                    <td><strong>${item.name}</strong></td>
+                    <td>${item.winner}</td>
+                    <td>R$ ${item.price.toFixed(2)}</td>
                     <td>${acaoPix}</td>
                 </tr>
             `;
@@ -1302,36 +1337,65 @@ function renderAdminTables() {
     });
 }
 
-function verComprovante(auctionId) {
-    let a = auctions.find(x => x.id == auctionId);
-    if (!a || !a.comprovante) return;
+function verComprovante(tipo, idRef, username) {
+    let comprovanteUrl = null;
+    let itemName = "";
+    let itemPrice = 0;
+
+    if (tipo === 'leilao') {
+        let a = auctions.find(x => x.id == idRef);
+        if (a) {
+            comprovanteUrl = a.comprovante;
+            itemName = a.name;
+            itemPrice = a.price;
+        }
+    } else {
+        if (garages[username]) {
+            let itemGaragem = garages[username].find(x => x.idLeilao == idRef);
+            if (itemGaragem) {
+                comprovanteUrl = itemGaragem.comprovante;
+                itemName = itemGaragem.name;
+                itemPrice = itemGaragem.price;
+            }
+        }
+    }
+
+    if (!comprovanteUrl) {
+        alert("Nenhum arquivo de comprovante encontrado.");
+        return;
+    }
 
     let win = window.open("");
     win.document.write(`
         <body style="background:#141414; color:#fff; text-align:center; font-family:sans-serif; padding:20px;">
-            <h2>Comprovante - ${a.winner}</h2>
-            <p>Item: <strong>${a.name}</strong> | Valor: <strong>R$ ${a.price.toFixed(2)}</strong></p>
-            <img src="${a.comprovante}" style="max-width:100%; max-height:70vh; border-radius:8px; border:2px solid #ffcc00; margin-bottom:20px;"><br>
-            <button onclick="window.opener.aprovarPagamento(${a.id}); window.close();" style="background:#27ae60; color:#fff; padding:12px 25px; border:none; font-size:16px; border-radius:6px; cursor:pointer; font-weight:bold;">✅ Aprovar Pagamento</button>
+            <h2>Comprovante - ${username}</h2>
+            <p>Item: <strong>${itemName}</strong> | Valor: <strong>R$ ${itemPrice.toFixed(2)}</strong></p>
+            <img src="${comprovanteUrl}" style="max-width:100%; max-height:70vh; border-radius:8px; border:2px solid #ffcc00; margin-bottom:20px;"><br>
+            <button onclick="window.opener.aprovarPagamentoGenerico('${tipo}', ${idRef}, '${username}'); window.close();" style="background:#27ae60; color:#fff; padding:12px 25px; border:none; font-size:16px; border-radius:6px; cursor:pointer; font-weight:bold;">✅ Aprovar Pagamento</button>
         </body>
     `);
 }
 
-async function aprovarPagamento(auctionId) {
-    let a = auctions.find(x => x.id == auctionId);
-    if (a) {
-        a.statusPagamento = 'aprovado';
-        
-        if (garages[a.winner]) {
-            let itemGaragem = garages[a.winner].find(x => x.idLeilao == a.id);
-            if(itemGaragem) itemGaragem.pago = true;
+async function aprovarPagamentoGenerico(tipo, idRef, username) {
+    if (tipo === 'leilao') {
+        let a = auctions.find(x => x.id == idRef);
+        if (a) {
+            a.statusPagamento = 'aprovado';
+            await saveToSupabase('leiloes', auctions);
+        }
+    }
+
+    if (garages[username]) {
+        let itemGaragem = garages[username].find(x => x.idLeilao == idRef);
+        if (itemGaragem) {
+            itemGaragem.pago = true;
+            itemGaragem.statusPagamento = 'aprovado';
             await saveToSupabase('garagens', garages);
         }
-
-        await saveToSupabase('leiloes', auctions);
-        alert("Pagamento aprovado!");
-        load();
     }
+
+    alert("Pagamento aprovado com sucesso!");
+    load();
 }
 
 function saveSniper(event, id) {
@@ -1468,7 +1532,9 @@ function processarEncerramento(a) {
                 name: a.name, 
                 photo: a.photo, 
                 price: a.price, 
-                pago: false 
+                pago: false,
+                statusPagamento: 'pendente',
+                comprovante: null
             });
         }
         saveToSupabase('garagens', garages);
@@ -1519,12 +1585,12 @@ function showGarage() {
 
     items.forEach(x => {
         let auctionRef = auctions.find(ac => ac.id == x.idLeilao);
-        let statusPag = auctionRef ? auctionRef.statusPagamento : (x.pago ? 'aprovado' : 'pendente');
+        let statusPag = x.statusPagamento || (auctionRef ? auctionRef.statusPagamento : (x.pago ? 'aprovado' : 'pendente'));
 
         let statusHtml = '';
-        if (statusPag === 'aprovado') {
+        if (statusPag === 'aprovado' || x.pago) {
             statusHtml = `<p style="margin:5px 0 0 0; color:#27ae60; font-size:13px; font-weight:bold;">🟢 Pagamento Aprovado</p>`;
-        } else if (statusPag === 'analise') {
+        } else if (statusPag === 'analise' || x.comprovante) {
             statusHtml = `<p style="margin:5px 0 0 0; color:#f39c12; font-size:13px; font-weight:bold;">⏳ Comprovante em Análise</p>`;
         } else {
             statusHtml = `
@@ -1541,7 +1607,7 @@ function showGarage() {
         let div = document.createElement("div");
         div.className = "leilao-item";
         div.style.background = "#152a1c";
-        div.style.borderColor = x.pago ? "#00ff66" : "#444";
+        div.style.borderColor = (statusPag === 'aprovado' || x.pago) ? "#00ff66" : "#444";
         div.innerHTML = `
             <div>
                 <img src="${x.photo}">
@@ -1565,14 +1631,27 @@ function enviarComprovante(auctionId) {
     const reader = new FileReader();
     reader.onload = function(e) {
         let base64Comp = e.target.result;
+        
+        // Atualiza no leilão caso exista
         let a = auctions.find(x => x.id == auctionId);
         if (a) {
             a.comprovante = base64Comp;
             a.statusPagamento = 'analise';
             saveToSupabase('leiloes', auctions);
-            alert("Comprovante enviado!");
-            load();
         }
+
+        // Atualiza na garagem do usuário atual
+        if (logged && garages[logged.user]) {
+            let itemGaragem = garages[logged.user].find(x => x.idLeilao == auctionId);
+            if (itemGaragem) {
+                itemGaragem.comprovante = base64Comp;
+                itemGaragem.statusPagamento = 'analise';
+                saveToSupabase('garagens', garages);
+            }
+        }
+
+        alert("Comprovante enviado com sucesso!");
+        load();
     }
     reader.readAsDataURL(file);
 }
