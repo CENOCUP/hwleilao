@@ -232,7 +232,9 @@
         <h3 style="text-align: center; margin-top: 25px; color: #aaa;">Primeiro acesso? Cadastre-se abaixo</h3>
         <label>Criar Novo Usuário</label>
         <input id="newUser" placeholder="Digite o nome de usuário desejado">
-        <button type="button" class="btn-secondary" style="width: 100%;" onclick="createUser(event)">Criar Conta (Senha Padrão: 1234)</button>
+        <label>Defina Sua Senha</label>
+        <input id="newPass" type="password" placeholder="Digite uma senha segura">
+        <button type="button" class="btn-secondary" style="width: 100%;" onclick="createUser(event)">Criar Conta Personalizada</button>
     </div>
 
     <!-- SISTEMA -->
@@ -374,6 +376,9 @@ async function loadFromSupabase() {
     let { data: resGarages } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'garagens').single();
     if (resGarages) garages = JSON.parse(resGarages.conteudo);
 
+    // Verificar se já existe uma sessão salva no celular
+    checkSavedSession();
+
     load();
     populateUserSelect();
 }
@@ -395,17 +400,21 @@ function initRealtime() {
 function createUser(event) {
     if(event) event.preventDefault();
     let u = document.getElementById("newUser").value.trim();
+    let p = document.getElementById("newPass").value.trim();
+    
     if (!u) { alert("Digite um nome de usuário!"); return; }
+    if (!p) { alert("Defina uma senha para sua segurança!"); return; }
 
     if (users.find(x => x.user.toLowerCase() === u.toLowerCase())) {
         alert("Este usuário já está cadastrado!");
         return;
     }
 
-    users.push({ user: u, pass: "1234", type: "user" });
+    users.push({ user: u, pass: p, type: "user" });
     saveToSupabase('usuarios', users);
-    alert("Usuário '" + u + "' criado! Senha: 1234");
+    alert("Usuário '" + u + "' criado com sucesso com sua senha personalizada!");
     document.getElementById("newUser").value = "";
+    document.getElementById("newPass").value = "";
     loadFromSupabase();
 }
 
@@ -448,27 +457,52 @@ function login(event) {
 
     if (found) {
         logged = found;
-        document.getElementById("loginPage").classList.add("hidden");
-        document.getElementById("system").classList.remove("hidden");
-        document.getElementById("currentUser").innerHTML = u;
-
-        if (found.type == "admin") {
-            document.getElementById("adminPanel").classList.remove("hidden");
-            populateUserSelect();
-        } else {
-            document.getElementById("adminPanel").classList.add("hidden");
-        }
-        load();
+        // Salva a sessão no navegador para não deslogar no F5/Atualizar
+        localStorage.setItem("hw_session", JSON.stringify(found));
+        
+        entrarNoPainel(found);
     } else {
         alert("Usuário ou senha incorretos.");
+    }
+}
+
+function entrarNoPainel(usuario) {
+    document.getElementById("loginPage").classList.add("hidden");
+    document.getElementById("system").classList.remove("hidden");
+    document.getElementById("currentUser").innerHTML = usuario.user;
+
+    if (usuario.type == "admin") {
+        document.getElementById("adminPanel").classList.remove("hidden");
+        populateUserSelect();
+    } else {
+        document.getElementById("adminPanel").classList.add("hidden");
+    }
+    load();
+}
+
+function checkSavedSession() {
+    let session = localStorage.getItem("hw_session");
+    if (session) {
+        let savedUser = JSON.parse(session);
+        // Atualiza a referência local com os dados atualizados do banco (caso a senha mude)
+        let found = users.find(x => x.user == savedUser.user && x.pass == savedUser.pass);
+        if (found) {
+            logged = found;
+            entrarNoPainel(found);
+        } else {
+            localStorage.removeItem("hw_session");
+        }
     }
 }
 
 function logout(event) {
     if(event) event.preventDefault();
     logged = null;
+    localStorage.removeItem("hw_session"); // Remove o login salvo do celular
     document.getElementById("system").classList.add("hidden");
     document.getElementById("loginPage").classList.remove("hidden");
+    document.getElementById("loginUser").value = "";
+    document.getElementById("loginPass").value = "";
 }
 
 function addAuction(event) {
@@ -574,6 +608,8 @@ function renderAdminTable() {
 
 function bid(event, id) {
     if(event) event.preventDefault();
+    if(!logged) { alert("Você precisa estar logado!"); return; }
+    
     let auction = auctions.find(x => x.id == id);
     let value = Number(document.getElementById("bid" + id).value);
 
@@ -602,7 +638,7 @@ setInterval(() => {
                 let winner = a.bids[a.bids.length - 1];
                 a.winner = winner.user;
                 if (!garages[winner.user]) garages[winner.user] = [];
-                zipgarages[winner.user].push({ name: a.name, photo: a.photo, price: a.price });
+                garages[winner.user].push({ name: a.name, photo: a.photo, price: a.price });
                 saveToSupabase('garagens', garages);
             }
             saveToSupabase('leiloes', auctions);
@@ -644,6 +680,7 @@ function showGarage() {
 function deleteAuction(event, id) {
     if(event) event.preventDefault();
     if (confirm("Deseja remover esse leilão?")) {
+        // Correção de bug ortográfico: alterado 'zipgarages' para 'garages'
         auctions = auctions.filter(x => x.id != id);
         saveToSupabase('leiloes', auctions);
         load();
