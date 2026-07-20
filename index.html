@@ -278,6 +278,36 @@
             border-radius: 8px;
             margin-top: 10px;
         }
+
+        /* ESTILO DAS ABAS DO ADMIN */
+        .admin-tabs-nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+        }
+        .btn-admin-tab {
+            background: #2a2a2a;
+            color: #aaa;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            border: 1px solid #444;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-admin-tab:hover {
+            background: #333;
+            color: #fff;
+        }
+        .btn-admin-tab.active {
+            background: #e10600;
+            color: #fff;
+            border-color: #ff3333;
+            box-shadow: 0 4px 12px rgba(225, 6, 0, 0.4);
+        }
     </style>
 </head>
 <body>
@@ -320,119 +350,165 @@
             </div>
         </div>
 
-        <!-- 🛠 PAINEL ADMINISTRADOR -->
+        <!-- 🛠 PAINEL ADMINISTRADOR (COM 3 ABAS) -->
         <div id="adminPanel" class="hidden card" style="border: 1px solid #ffcc00;">
-            <h2>🛠 Painel do Administrador</h2>
+            <h2>🛠️ Centro de Controle do Administrador</h2>
             
-            <div class="garagem-header">
-                <div class="metrica-card" style="border-left-color: #27ae60;">
-                    <h4>Total Faturado (Encerrados)</h4>
-                    <p id="adminMetricTotal" style="color: #00ff66;">R$ 0,00</p>
+            <!-- NAVEGAÇÃO DAS ABAS -->
+            <div class="admin-tabs-nav">
+                <button type="button" class="btn-admin-tab active" id="tabBtnLeilao" onclick="switchAdminTab('leilao')">🔨 ABA LEILÃO</button>
+                <button type="button" class="btn-admin-tab" id="tabBtnFinanceiro" onclick="switchAdminTab('financeiro')">💰 FINANCEIRO</button>
+                <button type="button" class="btn-admin-tab" id="tabBtnPainel" onclick="switchAdminTab('painel')">🛠️ PAINEL DO ADMIN</button>
+            </div>
+
+            <!-- ================= CONTEÚDO: ABA LEILÃO ================= -->
+            <div id="adminTabLeilao">
+                <h3>➕ Cadastrar Nova Miniatura no Leilão</h3>
+                <div class="form-grid">
+                    <div>
+                        <label>Nome da Hot Wheels</label>
+                        <input id="carName" placeholder="Ex: '67 Camaro">
+                    </div>
+                    <div>
+                        <label>Categoria / Série</label>
+                        <input id="carCategory" placeholder="Ex: Super Treasure Hunt">
+                    </div>
+                    <div>
+                        <label>Ano de Lançamento</label>
+                        <input id="carYear" placeholder="Ex: 2024">
+                    </div>
+                </div>
+                
+                <label>Tirar Foto / Selecionar Imagem</label>
+                <input id="carPhotoFile" type="file" accept="image/*" capture="environment" onchange="previewAndCompressImage(this)">
+                
+                <div id="imgPreviewContainer">
+                    <img id="imgPreview" src="" alt="Preview">
+                </div>
+                
+                <label>Descrição do Item / Estado da Cartela</label>
+                <textarea id="carDesc" placeholder="Detalhes sobre a miniatura..."></textarea>
+                
+                <div class="form-grid">
+                    <div>
+                        <label>Lance Inicial (R$)</label>
+                        <input id="carStart" type="number" placeholder="0.00">
+                    </div>
+                    <div>
+                        <label>Duração do Leilão (Minutos)</label>
+                        <input id="carTime" type="number" placeholder="Ex: 10">
+                    </div>
+                </div>
+                
+                <button type="button" style="background: #27ae60;" onclick="addAuction(event)">🚀 Ativar e Publicar Leilão</button>
+
+                <hr style="border-color: #333; margin: 30px 0;">
+
+                <h3>⏱️ Ajustador Manual de Relógio (Leilões Ativos)</h3>
+                <div class="form-grid" style="align-items: flex-end;">
+                    <div>
+                        <label>Selecionar Leilão Ativo</label>
+                        <select id="adjustTimerAuction"></select>
+                    </div>
+                    <div>
+                        <label>Ajustar Minutos (+ Adiciona / - Subtrai)</label>
+                        <input id="adjustTimerMinutes" type="number" placeholder="Ex: 5 ou -2" value="5">
+                    </div>
+                    <button type="button" style="background: #e67e22; margin-bottom: 16px;" onclick="adjustAuctionTimer(event)">Ajustar Tempo</button>
+                </div>
+
+                <hr style="border-color: #333; margin: 30px 0;">
+
+                <h3>📊 Monitoramento Geral de Itens</h3>
+                <div style="margin-bottom: 10px;">
+                    <button type="button" class="btn-secondary btn-filter active" id="filterAll" onclick="changeAdminFilter('all')">Todos</button>
+                    <button type="button" class="btn-secondary btn-filter" id="filterActive" onclick="changeAdminFilter('active')">Ativos</button>
+                    <button type="button" class="btn-secondary btn-filter" id="filterClosed" onclick="changeAdminFilter('closed')">Encerrados</button>
+                </div>
+                <div class="admin-table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                typeof <th>Miniatura</th>
+                                <th>Preço Final</th>
+                                <th>Status</th>
+                                <th>Vencedor & Pagamento</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminTableBody"></tbody>
+                    </table>
                 </div>
             </div>
 
-            <h3>💳 Configurar Chave PIX para Pagamentos</h3>
-            <div style="display: flex; gap: 10px; align-items: flex-end;">
-                <div style="flex: 1;">
-                    <label>Sua Chave PIX (CPF, Telefone, E-mail ou Aleatória)</label>
-                    <input id="adminPixKeyInput" placeholder="Ex: 11999999999 ou seu@email.com">
+            <!-- ================= CONTEÚDO: ABA FINANCEIRO ================= -->
+            <div id="adminTabFinanceiro" class="hidden">
+                <div class="garagem-header">
+                    <div class="metrica-card" style="border-left-color: #27ae60;">
+                        <h4>Total Faturado (Encerrados)</h4>
+                        <p id="adminMetricTotal" style="color: #00ff66;">R$ 0,00</p>
+                    </div>
                 </div>
-                <button type="button" style="background: #27ae60; margin-bottom: 16px;" onclick="saveAdminPix(event)">Salvar Chave PIX</button>
+
+                <h3>💳 Configurar Chave PIX Principal</h3>
+                <div style="display: flex; gap: 10px; align-items: flex-end;">
+                    <div style="flex: 1;">
+                        <label>Sua Chave PIX (CPF, Telefone, E-mail ou Aleatória)</label>
+                        <input id="adminPixKeyInput" placeholder="Ex: 11999999999 ou seu@email.com">
+                    </div>
+                    <button type="button" style="background: #27ae60; margin-bottom: 16px;" onclick="saveAdminPix(event)">Salvar Chave PIX</button>
+                </div>
+
+                <hr style="border-color: #333; margin: 30px 0;">
+
+                <h3>🧾 Conferência de Comprovantes Enviados</h3>
+                <p style="color: #aaa; font-size: 13px;">Aqui você acompanha os pagamentos informados pelos vencedores e aprova para liberar na garagem deles.</p>
+                <div class="admin-table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Item Arrematado</th>
+                                <th>Vencedor</th>
+                                <th>Valor</th>
+                                <th>Status do PIX</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminFinanceTableBody"></tbody>
+                    </table>
+                </div>
             </div>
 
-            <hr style="border-color: #333; margin: 20px 0;">
+            <!-- ================= CONTEÚDO: ABA PAINEL DO ADMIN ================= -->
+            <div id="adminTabPainel" class="hidden">
+                <h3>🔑 Gerenciar Senhas dos Usuários</h3>
+                <div class="form-grid" style="align-items: flex-end;">
+                    <div>
+                        <label>Selecionar Usuário</label>
+                        <select id="changePassUser"></select>
+                    </div>
+                    <div>
+                        <label>Nova Senha</label>
+                        <input id="changePassNew" type="password" placeholder="Digite a nova senha">
+                    </div>
+                    <button type="button" style="background: #d35400; margin-bottom: 16px;" onclick="changeUserPassword(event)">Atualizar Senha</button>
+                </div>
 
-            <h3>⏱️ Ajustador Manual de Relógio (Leilões Ativos)</h3>
-            <div class="form-grid" style="align-items: flex-end;">
-                <div>
-                    <label>Selecionar Leilão Ativo</label>
-                    <select id="adjustTimerAuction"></select>
+                <hr style="border-color: #333; margin: 30px 0;">
+
+                <h3>👥 Lista de Usuários Cadastrados</h3>
+                <div class="admin-table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Usuário</th>
+                                <th>Tipo de Conta</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminUsersTableBody"></tbody>
+                    </table>
                 </div>
-                <div>
-                    <label>Ajustar Minutos (+ Adiciona / - Subtrai)</label>
-                    <input id="adjustTimerMinutes" type="number" placeholder="Ex: 5 ou -2" value="5">
-                </div>
-                <button type="button" style="background: #e67e22; margin-bottom: 16px;" onclick="adjustAuctionTimer(event)">Ajustar Tempo</button>
             </div>
 
-            <hr style="border-color: #333; margin: 20px 0;">
-
-            <h3>🔑 Gerenciar Senhas dos Usuários</h3>
-            <div class="form-grid" style="align-items: flex-end;">
-                <div>
-                    <label>Selecionar Usuário</label>
-                    <select id="changePassUser"></select>
-                </div>
-                <div>
-                    <label>Nova Senha</label>
-                    <input id="changePassNew" type="password" placeholder="Digite a nova senha">
-                </div>
-                <button type="button" style="background: #d35400; margin-bottom: 16px;" onclick="changeUserPassword(event)">Atualizar Senha</button>
-            </div>
-
-            <hr style="border-color: #333; margin: 20px 0;">
-
-            <h3>➕ Cadastrar Nova Miniatura no Leilão</h3>
-            <div class="form-grid">
-                <div>
-                    <label>Nome da Hot Wheels</label>
-                    <input id="carName" placeholder="Ex: '67 Camaro">
-                </div>
-                <div>
-                    <label>Categoria / Série</label>
-                    <input id="carCategory" placeholder="Ex: Super Treasure Hunt">
-                </div>
-                <div>
-                    <label>Ano de Lançamento</label>
-                    <input id="carYear" placeholder="Ex: 2024">
-                </div>
-            </div>
-            
-            <label>Tirar Foto / Selecionar Imagem</label>
-            <input id="carPhotoFile" type="file" accept="image/*" capture="environment" onchange="previewAndCompressImage(this)">
-            
-            <div id="imgPreviewContainer">
-                <img id="imgPreview" src="" alt="Preview">
-            </div>
-            
-            <label>Descrição do Item / Estado da Cartela</label>
-            <textarea id="carDesc" placeholder="Detalhes sobre a miniatura..."></textarea>
-            
-            <div class="form-grid">
-                <div>
-                    <label>Lance Inicial (R$)</label>
-                    <input id="carStart" type="number" placeholder="0.00">
-                </div>
-                <div>
-                    <label>Duração do Leilão (Minutos)</label>
-                    <input id="carTime" type="number" placeholder="Ex: 10">
-                </div>
-            </div>
-            
-            <button type="button" style="background: #27ae60;" onclick="addAuction(event)">🚀 Ativar e Publicar Leilão</button>
-
-            <hr style="border-color: #333; margin: 30px 0;">
-
-            <h3>📊 Monitoramento Geral de Itens (Admin)</h3>
-            <div style="margin-bottom: 10px;">
-                <button type="button" class="btn-secondary btn-filter active" id="filterAll" onclick="changeAdminFilter('all')">Todos</button>
-                <button type="button" class="btn-secondary btn-filter" id="filterActive" onclick="changeAdminFilter('active')">Ativos</button>
-                <button type="button" class="btn-secondary btn-filter" id="filterClosed" onclick="changeAdminFilter('closed')">Encerrados</button>
-            </div>
-            <div class="admin-table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Miniatura</th>
-                            <th>Preço Final</th>
-                            <th>Status</th>
-                            <th>Vencedor & Pagamento</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="adminTableBody"></tbody>
-                </table>
-            </div>
         </div>
 
         <!-- LEILOES ATIVOS -->
@@ -476,6 +552,27 @@ let logged = null;
 let base64ImageString = ""; 
 let currentAdminFilter = "all";
 let presenceChannel = null;
+
+function switchAdminTab(tabName) {
+    document.getElementById("adminTabLeilao").classList.add("hidden");
+    document.getElementById("adminTabFinanceiro").classList.add("hidden");
+    document.getElementById("adminTabPainel").classList.add("hidden");
+
+    document.getElementById("tabBtnLeilao").classList.remove("active");
+    document.getElementById("tabBtnFinanceiro").classList.remove("active");
+    document.getElementById("tabBtnPainel").classList.remove("active");
+
+    if (tabName === 'leilao') {
+        document.getElementById("adminTabLeilao").classList.remove("hidden");
+        document.getElementById("tabBtnLeilao").classList.add("active");
+    } else if (tabName === 'financeiro') {
+        document.getElementById("adminTabFinanceiro").classList.remove("hidden");
+        document.getElementById("tabBtnFinanceiro").classList.add("active");
+    } else if (tabName === 'painel') {
+        document.getElementById("adminTabPainel").classList.remove("hidden");
+        document.getElementById("tabBtnPainel").classList.add("active");
+    }
+}
 
 async function loadFromSupabase() {
     let { data: resUsers } = await supabaseClient.from('leilao_dados').select('conteudo').eq('id_leilao', 'usuarios').single();
@@ -579,7 +676,7 @@ function adjustAuctionTimer(event) {
     if (!a) { alert("Selecione um leilão válido!"); return; }
 
     a.time = a.time + (minutosDelta * 60000);
-    if (a.time < Date.now()) a.time = Date.now(); // Não deixa ir para o passado negativo
+    if (a.time < Date.now()) a.time = Date.now();
 
     saveToSupabase('leiloes', auctions);
     alert(`Relógio do leilão "${a.name}" ajustado com sucesso!`);
@@ -809,7 +906,7 @@ function load() {
         box.appendChild(div);
     });
 
-    renderAdminTable();
+    renderAdminTables();
     showGarage();
     populateSelects();
 }
@@ -820,16 +917,15 @@ function changeAdminFilter(filterType) {
     if(filterType === 'all') document.getElementById('filterAll').classList.add('active');
     if(filterType === 'active') document.getElementById('filterActive').classList.add('active');
     if(filterType === 'closed') document.getElementById('filterClosed').classList.add('active');
-    renderAdminTable();
+    renderAdminTables();
 }
 
-function renderAdminTable() {
+function renderAdminTables() {
     if (!logged || logged.type !== "admin") return;
-    let tbody = document.getElementById("adminTableBody");
-    tbody.innerHTML = "";
-
-    let totalFaturado = auctions.filter(a => !a.active && a.winner).reduce((sum, a) => sum + a.price, 0);
-    document.getElementById("adminMetricTotal").innerText = "R$ " + totalFaturado.toFixed(2);
+    
+    // ABA LEILÃO - TABELA MONITORAMENTO
+    let tbodyLeilao = document.getElementById("adminTableBody");
+    tbodyLeilao.innerHTML = "";
 
     let filteredAuctions = auctions;
     if (currentAdminFilter === "active") filteredAuctions = auctions.filter(a => a.active);
@@ -841,11 +937,11 @@ function renderAdminTable() {
         
         if (!a.active && a.winner) {
             if (a.statusPagamento === 'aprovado') {
-                pagStatus = `<span style="color: #27ae60; font-weight:bold;">🟢 Pago & Aprovado</span>`;
+                pagStatus = `<span style="color: #27ae60; font-weight:bold;">🟢 Pago</span>`;
             } else if (a.statusPagamento === 'analise') {
-                pagStatus = `<button type="button" style="background:#d35400; padding:4px 8px; font-size:11px;" onclick="verComprovante(${a.id})">🔍 Ver Comprovante</button>`;
+                pagStatus = `<span style="color: #f39c12; font-weight:bold;">⏳ Em Análise</span>`;
             } else {
-                pagStatus = `<span style="color: #f39c12;">Aguardando Pagamento</span>`;
+                pagStatus = `<span style="color: #aaa;">Pendente</span>`;
             }
         }
 
@@ -854,13 +950,57 @@ function renderAdminTable() {
             actionButtons += `<button type="button" class="btn-secondary" style="padding: 6px 10px; font-size:12px; background:#d35400;" onclick="forceCloseAuction(event, ${a.id})">Encerrar</button>`;
         }
 
-        tbody.innerHTML += `
+        tbodyLeilao.innerHTML += `
             <tr>
                 <td><strong>${a.name}</strong></td>
                 <td>R$ ${a.price.toFixed(2)}</td>
                 <td>${statusText}</td>
                 <td>${a.winner ? '🏆 ' + a.winner + '<br>' + pagStatus : 'Nenhum'}</td>
                 <td>${actionButtons}</td>
+            </tr>
+        `;
+    });
+
+    // ABA FINANCEIRO - METRICA & TABELA PIX
+    let totalFaturado = auctions.filter(a => !a.active && a.winner).reduce((sum, a) => sum + a.price, 0);
+    document.getElementById("adminMetricTotal").innerText = "R$ " + totalFaturado.toFixed(2);
+
+    let tbodyFinanceiro = document.getElementById("adminFinanceTableBody");
+    tbodyFinanceiro.innerHTML = "";
+    
+    let fechadosComVencedor = auctions.filter(a => !a.active && a.winner);
+    if(fechadosComVencedor.length === 0) {
+        tbodyFinanceiro.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888;">Nenhum leilão encerrado com vencedor ainda.</td></tr>`;
+    } else {
+        fechadosComVencedor.forEach(a => {
+            let acaoPix = "";
+            if (a.statusPagamento === 'aprovado') {
+                acaoPix = `<span style="color: #27ae60; font-weight:bold;">🟢 Pago & Aprovado</span>`;
+            } else if (a.statusPagamento === 'analise') {
+                acaoPix = `<button type="button" style="background:#d35400; padding:6px 12px; font-size:12px;" onclick="verComprovante(${a.id})">🔍 Ver Comprovante</button>`;
+            } else {
+                acaoPix = `<span style="color: #f39c12;">Aguardando Envio do Comprovante</span>`;
+            }
+
+            tbodyFinanceiro.innerHTML += `
+                <tr>
+                    <td><strong>${a.name}</strong></td>
+                    <td>${a.winner}</td>
+                    <td>R$ ${a.price.toFixed(2)}</td>
+                    <td>${acaoPix}</td>
+                </tr>
+            `;
+        });
+    }
+
+    // ABA PAINEL DO ADMIN - TABELA DE USUÁRIOS
+    let tbodyUsers = document.getElementById("adminUsersTableBody");
+    tbodyUsers.innerHTML = "";
+    users.forEach(u => {
+        tbodyUsers.innerHTML += `
+            <tr>
+                <td><strong>${u.user}</strong></td>
+                <td><span class="badge" style="background: ${u.type === 'admin' ? '#e10600' : '#444'}; color: #fff;">${u.type.toUpperCase()}</span></td>
             </tr>
         `;
     });
@@ -1025,7 +1165,6 @@ function processarEncerramento(a) {
         
         if (!garages[winner.user]) garages[winner.user] = [];
         
-        // Evita duplicar se já foi adicionado
         let jaExiste = garages[winner.user].some(x => x.idLeilao == a.id);
         if (!jaExiste) {
             garages[winner.user].push({ 
